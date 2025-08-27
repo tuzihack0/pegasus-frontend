@@ -52,5 +52,5 @@ fpm -s dir -t deb \
   -d 'libxkbcommon-x11-0' \
   -d 'libxkbcommon0' \
   -d 'libzstd1' \
-  -d 'policykit-1' \
+  --deb-suggests 'policykit-1' \
   $PWD/../installdir/=/
