@@ -22,6 +22,7 @@
 #include "FrontendLayer.h"
 #include "ProcessLauncher.h"
 #include "ScriptRunner.h"
+#include "Paths.h"
 #include "platform/PowerCommands.h"
 #include "types/AppCloseType.h"
 
@@ -58,6 +59,13 @@ void print_metainfo()
         QSysInfo::currentCpuArchitecture(),
         QGuiApplication::platformName()));
     Log::info(LOGMSG("Qt version %1").arg(qVersion()));
+}
+
+void create_config_dirs()
+{
+    QDir configDir(paths::writableConfigDir());
+    if (!configDir.mkpath(QStringLiteral("themes/")))
+        Log::warning(LOGMSG("Failed to automatically create the `themes` directory"));
 }
 
 void register_api_classes()
@@ -150,6 +158,7 @@ Backend::Backend(const CliArgs& args)
 
     Log::init(args.silent);
     print_metainfo();
+    create_config_dirs();
     register_api_classes();
 
     AppSettings::load_providers();
