@@ -359,7 +359,7 @@ final class IntentHelper {
                 case "-R":
                 case "--user":
                 case "--receiver-permission":
-                case "--display":
+                case "--isplay":
                 case "--windowingMode":
                 case "--activityType":
                 case "--task":
