@@ -22,6 +22,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.UserHandle;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -357,14 +358,104 @@ final class IntentHelper {
                 case "--attach-agent":
                 case "--attach-agent-bind":
                 case "-R":
-                case "--user":
-                case "--receiver-permission":
-                case "--isplay":
-                case "--windowingMode":
-                case "--activityType":
-                case "--task":
                     args.pop();
                     break;
+                // 已修改：--user 选项（指定启动用户）
+                case "--user": {
+                    String userIdStr = args.pop();
+                    int userId;
+                    try {
+                        userId = Integer.decode(userIdStr);
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("Invalid user ID: " + userIdStr);
+                    }
+                    // 校验用户ID合法性（非负）
+                    if (userId < 0) {
+                        throw new IllegalArgumentException("User ID cannot be negative: " + userIdStr);
+                    }
+                    intent.putExtra("android.intent.extra.USER_ID", userId);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    break;
+                }
+                // 已修改：--receiver-permission 选项（指定接收器权限）
+                case "--receiver-permission": {
+                    String receiverPerm = args.pop();
+                    // 校验权限字符串非空
+                    if (receiverPerm == null || receiverPerm.trim().isEmpty()) {
+                        throw new IllegalArgumentException("Receiver permission cannot be empty");
+                    }
+                    intent.setReceiverPermission(receiverPerm);
+                    break;
+                }
+                // 已修改：--display 选项（指定显示设备）
+                case "--display": {
+                    String displayIdStr = args.pop();
+                    int displayId;
+                    try {
+                        displayId = Integer.decode(displayIdStr);
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("Invalid display ID: " + displayIdStr);
+                    }
+                    // 校验显示ID合法性（非负）
+                    if (displayId < 0) {
+                        throw new IllegalArgumentException("Display ID cannot be negative: " + displayIdStr);
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        intent.setDisplayId(displayId);
+                    } else {
+                        throw new IllegalArgumentException("--display requires Android API 26 (Oreo) or higher");
+                    }
+                    break;
+                }
+                // 已修改：--windowingMode 选项（指定窗口模式）
+                case "--windowingMode": {
+                    String windowModeStr = args.pop();
+                    int windowMode;
+                    try {
+                        windowMode = Integer.decode(windowModeStr);
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("Invalid windowing mode: " + windowModeStr);
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        intent.putExtra("android.intent.extra.WINDOWING_MODE", windowMode);
+                    } else {
+                        throw new IllegalArgumentException("--windowingMode requires Android API 26 (Oreo) or higher");
+                    }
+                    break;
+                }
+                // 已修改：--activityType 选项（指定Activity类型）
+                case "--activityType": {
+                    String activityTypeStr = args.pop();
+                    int activityType;
+                    try {
+                        activityType = Integer.decode(activityTypeStr);
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("Invalid activity type: " + activityTypeStr);
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        intent.putExtra("android.intent.extra.ACTIVITY_TYPE", activityType);
+                    } else {
+                        throw new IllegalArgumentException("--activityType requires Android API 28 (Pie) or higher");
+                    }
+                    break;
+                }
+                // 已修改：--task 选项（指定任务栈）
+                case "--task": {
+                    String taskIdStr = args.pop();
+                    int taskId;
+                    try {
+                        taskId = Integer.decode(taskIdStr);
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("Invalid task ID: " + taskIdStr);
+                    }
+                    // 校验任务ID合法性（非负）
+                    if (taskId < 0) {
+                        throw new IllegalArgumentException("Task ID cannot be negative: " + taskIdStr);
+                    }
+                    intent.putExtra("android.intent.extra.TASK_ID", taskId);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+                    break;
+                }
                 default:
                     throw new IllegalArgumentException("Unknown option: " + opt);
             }
