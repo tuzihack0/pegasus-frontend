@@ -350,6 +350,7 @@ final class IntentHelper {
                 case "--task-overlay":
                 case "--lock-task":
                 case "--allow-background-activity-starts":
+                    intent.putExtra("am_flag_" + opt, true);
                     break;
                 case "-P":
                 case "--start-profiler":
@@ -357,15 +358,14 @@ final class IntentHelper {
                 case "--attach-agent":
                 case "--attach-agent-bind":
                 case "-R":
-                    args.pop();
-                    break;
                 case "--user":
                 case "--receiver-permission":
                 case "--display":
                 case "--windowingMode":
                 case "--activityType":
                 case "--task":
-                    args.pop();
+                    String v = args.pop();
+                    intent.putExtra("am_opt_" + opt, v);
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown option: " + opt);
