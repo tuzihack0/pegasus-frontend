@@ -1,4 +1,4 @@
-name: Build - Android
+name: Build Debug APK
 on: [push, pull_request, workflow_dispatch]
 
 env:
@@ -35,34 +35,25 @@ jobs:
           .circleci/prepare.sh
           curl -L ${TOOLS_URL}/openssl-111t_android.tar.xz | tar xJf - -C /opt/
 
-      - name: Build (Debug)
+      - name: Build Debug APK
         env:
           BUILDOPTS: ANDROID_ABIS=${{ matrix.abi }} FORCE_QT_PNG=1
           ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_NDK_LATEST_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: .circleci/build.sh
+        run: |
+          .circleci/build.sh
+          /opt/${QT_VERSION}_${QT_TARGET}/bin/androiddeployqt \
+            --input src/app/android-pegasus-fe-deployment-settings.json \
+            --output ${PWD}/installdir \
+            --android-platform android-30 \
+            --gradle
 
-      - name: Package (Debug APK)
-        env:
-          ANDROID_NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          ANDROID_NDK_LATEST_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-        run: /opt/${QT_VERSION}_${QT_TARGET}/bin/androiddeployqt \
-          --input src/app/android-pegasus-fe-deployment-settings.json \
-          --output ${PWD}/installdir \
-          --android-platform android-30 \
-          --gradle
-
-      - name: Stage artifact
+      - name: Upload APK
         run: |
           mkdir -p dist
-          cp installdir/build/outputs/apk/debug/installdir-debug.apk \
-             dist/pegasus-fe_$(git describe --always)_${{ matrix.name }}.apk
-
-      - name: Upload artifact
+          cp installdir/build/outputs/apk/debug/*.apk dist/
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
