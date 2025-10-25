@@ -1,29 +1,20 @@
 // Pegasus Frontend
-// Copyright (C) 2017-2021  Mátyás Mustoha
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <http://www.gnu.org/licenses/>.
+// Copyright (C) ...
+// GPLv3-or-later
 
 package org.pegasus_frontend.android;
 
+import android.app.Activity;
 import android.app.ActivityOptions;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Display;
 
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -32,10 +23,10 @@ import java.util.LinkedList;
 
 final class IntentHelper {
     private static final String TAG = "IntentHelper";
-    /** 我们自用的 extra，保存解析到的显示屏 ID，供启动阶段读取 */
+    /** 我们自用的 extra，用于在启动阶段读取目标显示屏 id */
     private static final String EXTRA_PEGASUS_DISPLAY_ID = "pegasus_launch_display_id";
 
-    // 基于 AOSP 的 Intent.parseCommandArgs，裁剪并适配
+    // 基于 AOSP 的 Intent.parseCommandArgs，适配并裁剪
     public static Intent parseIntentCommand(LinkedList<String> args) throws URISyntaxException {
         Intent intent = new Intent();
         Intent baseIntent = intent;
@@ -43,7 +34,7 @@ final class IntentHelper {
 
         Uri data = null;
         String type = null;
-        int displayId = -1; // 默认不指定
+        int displayId = -1; // 未指定
 
         while (!args.isEmpty()) {
             final String opt = args.pop();
@@ -69,7 +60,7 @@ final class IntentHelper {
                     if (intent == baseIntent) hasIntentInfo = true;
                     break;
 
-                // ----- extras -----
+                // ---- extras ----
                 case "-e":
                 case "--es": {
                     String key = args.pop();
@@ -176,8 +167,8 @@ final class IntentHelper {
                 case "--esa": {
                     String key = args.pop();
                     String value = args.pop();
+                    // 以未转义逗号切分，并反转义 \, 与 \\
                     String[] strings = value.split("(?<!\\\\),");
-                    // 反转义 \, 和 \\，避免调用方再手动处理
                     for (int i = 0; i < strings.length; i++) {
                         strings[i] = strings[i].replace("\\,", ",").replace("\\\\", "\\");
                     }
@@ -213,7 +204,7 @@ final class IntentHelper {
                     break;
                 }
 
-                // ----- 组件／包名／flags -----
+                // ---- 目标/包名/flags ----
                 case "-n": {
                     String str = args.pop();
                     ComponentName cn = ComponentName.unflattenFromString(str);
@@ -261,13 +252,12 @@ final class IntentHelper {
                 case "--receiver-foreground": intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND); break;
                 case "--receiver-no-abort": intent.addFlags(Intent.FLAG_RECEIVER_NO_ABORT); break;
 
-                // 选择器
                 case "--selector":
                     intent.setDataAndType(data, type);
                     intent = new Intent();
                     break;
 
-                // 这些 'am' 自身的选项，这里不直接生效，保持为额外信息
+                // am 自身的选项，保持为 extra 以便上层决定
                 case "-D":
                 case "-N":
                 case "-W":
@@ -280,7 +270,7 @@ final class IntentHelper {
                     intent.putExtra("am_flag_" + opt, true);
                     break;
 
-                // ---------- 本实现真正支持的 display 入口 ----------
+                // ---- 真正支持的 --display ----
                 case "--display": {
                     String v = args.pop();
                     try {
@@ -288,11 +278,11 @@ final class IntentHelper {
                     } catch (NumberFormatException e) {
                         throw new IllegalArgumentException("Invalid --display value: " + v);
                     }
-                    // 不 putExtra("am_opt_--display")，而是内部保存，启动时转 ActivityOptions
+                    // 不 putExtra("am_opt_--display")，保存到本地变量，启动阶段再转成 ActivityOptions
                     break;
                 }
 
-                // 其它保留为附加信息（系统不会自动识别）
+                // 其它保留信息（系统不会自动识别）
                 case "-P":
                 case "--start-profiler":
                 case "--sampling":
@@ -303,8 +293,7 @@ final class IntentHelper {
                 case "--receiver-permission":
                 case "--windowingMode":
                 case "--activityType":
-                case "--task":
-                {
+                case "--task": {
                     String v = args.pop();
                     intent.putExtra("am_opt_" + opt, v);
                     break;
@@ -364,19 +353,51 @@ final class IntentHelper {
 
         if (!hasIntentInfo) throw new IllegalArgumentException("No intent supplied");
 
-        // 保存 displayId，供启动阶段读取
+        // 把 displayId 存入 extra，供启动阶段读取
         if (displayId >= 0) intent.putExtra(EXTRA_PEGASUS_DISPLAY_ID, displayId);
 
         return intent;
     }
 
     /**
-     * 根据 parseIntentCommand() 写入的 EXTRA_PEGASUS_DISPLAY_ID，尽可能在指定 Display 上启动。
-     * - 仅当 API >= 26 且设备策略允许时生效；否则自动降级为默认显示启动。
+     * 根据 EXTRA_PEGASUS_DISPLAY_ID，尽可能在指定 Display 启动。
+     * - API >= 26 使用 ActivityOptions#setLaunchDisplayId
+     * - 非 Activity 上下文自动添加 NEW_TASK/MULTIPLE_TASK
+     * - 目标显示不存在或系统策略不允许时自动降级在默认屏启动
      */
     public static void startActivityWithOptions(Context context, Intent intent) {
-        Bundle opts = null;
         int displayId = intent.getIntExtra(EXTRA_PEGASUS_DISPLAY_ID, -1);
+
+        // 1) 校验目标 Display 是否存在
+        if (displayId >= 0) {
+            try {
+                DisplayManager dm = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+                Display target = (dm != null) ? dm.getDisplay(displayId) : null;
+                if (target == null) {
+                    Log.w(TAG, "Target displayId " + displayId + " not found; fallback to default");
+                    displayId = -1;
+                } else {
+                    try {
+                        // 打印 flags（辅助判断是否为 Presentation/Private）
+                        int flags = (int) Display.class.getMethod("getFlags").invoke(target);
+                        Log.d(TAG, "Display#" + displayId + " flags=0x" + Integer.toHexString(flags));
+                    } catch (Throwable ignore) {}
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "Display check failed: " + t);
+            }
+        }
+
+        // 2) 非 Activity 上下文 => 强制新任务，降低被合并回主屏概率
+        if (!(context instanceof Activity)) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+            // 如需更“决绝”，可按需启用清任务：
+            // intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        }
+
+        // 3) 传入 ActivityOptions（API 26+）
+        Bundle opts = null;
         if (displayId >= 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 ActivityOptions ao = ActivityOptions.makeBasic();
@@ -386,10 +407,14 @@ final class IntentHelper {
                 Log.w(TAG, "setLaunchDisplayId not honored: " + t);
             }
         }
-        if (opts != null) {
-            context.startActivity(intent, opts);
-        } else {
-            context.startActivity(intent);
+
+        // 4) 启动 & 兜底
+        try {
+            if (opts != null) context.startActivity(intent, opts);
+            else context.startActivity(intent);
+        } catch (Throwable t) {
+            Log.e(TAG, "startActivity failed: " + t);
+            try { context.startActivity(intent); } catch (Throwable ignore) {}
         }
     }
 }
