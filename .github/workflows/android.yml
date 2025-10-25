@@ -58,26 +58,37 @@ jobs:
           installdir/build/outputs/apk/debug/installdir-debug.apk
           dist/pegasus-fe_$(git describe --always)_${{ matrix.name }}.apk
 
+      - name: Show OpenSSL version
+        run: openssl version -a
+
       - name: Package (release), prep
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
+        env:
+          AKS_ENC_KEY: ${{ secrets.AKS_ENC_KEY }}
         run: |
           curl -LO https://github.com/mmatyas/pegasus-frontend/releases/download/alpha1/aks.enc
-          openssl aes-256-cbc -k "${{ secrets.AKS_ENC_KEY }}" -in aks.enc -out aks -d
+          echo "AKS_ENC_KEY length: ${#AKS_ENC_KEY}"
+          test -n "$AKS_ENC_KEY" || (echo "Secret AKS_ENC_KEY is empty"; exit 1)
+          # 关键：显式 legacy KDF 与 OpenSSL 3 兼容
+          openssl enc -d -aes-256-cbc -md md5 -in aks.enc -out aks -pass pass:"$AKS_ENC_KEY"
+
       - name: Package (release)
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
-        run: /opt/${QT_VERSION}_${QT_TARGET}/bin/androiddeployqt
-          --input src/app/android-pegasus-fe-deployment-settings.json
-          --output ${PWD}/installdir
-          --android-platform android-30
-          --gradle
-          --sign ./aks "${{ secrets.AKS_ALIAS }}"
-          --storepass "${{ secrets.AKS_STOREPASS }}"
+        run: /opt/${QT_VERSION}_${QT_TARGET}/bin/androiddeployqt \
+          --input src/app/android-pegasus-fe-deployment-settings.json \
+          --output ${PWD}/installdir \
+          --android-platform android-30 \
+          --gradle \
+          --sign ./aks "${{ secrets.AKS_ALIAS }}" \
+          --storepass "${{ secrets.AKS_STOREPASS }}" \
           --keypass "${{ secrets.AKS_KEYPASS }}"
+
       - name: Package (release), stage
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master'
-        run: cp
-          installdir/build/outputs/apk/release/installdir-release-signed.apk
-          dist/pegasus-fe_$(git describe --always)_${{ matrix.name }}.apk
+        run: |
+          mkdir -p dist
+          cp installdir/build/outputs/apk/release/installdir-release-signed.apk \
+             dist/pegasus-fe_$(git describe --always)_${{ matrix.name }}.apk
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
