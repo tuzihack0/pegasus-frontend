@@ -254,6 +254,7 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
     Log::info(LOGMSG("Working directory: `%3`").arg(::pretty_path(workdir)));
 
 #ifndef Q_OS_ANDROID
+    // -------- 非 Android 平台：沿用原有 QProcess 逻辑 --------
     Q_ASSERT(!m_process);
     m_process = new QProcess(this);
 
@@ -271,18 +272,26 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
     m_process->waitForStarted(-1);
 
 #else // Q_OS_ANDROID
-    const QString result = android::run_am_call(args);
+    // -------- Android 平台：优先应用内解析 am start（支持 --display）--------
+    // 这里会在 Java 侧把 --display 转成 ActivityOptions#setLaunchDisplayId
+    QString result = android::start_activity_from_am_args(args);
+
     if (result.isEmpty()) {
         emit processLaunchOk();
         Log::info(LOGMSG("Activity finished"));
+    } else {
+        // 如需回退到外部 am，可在此调用 android::run_am_call(args)
+        // result = android::run_am_call(args);
+        // if (result.isEmpty()) {
+        //     emit processLaunchOk();
+        //     Log::info(LOGMSG("Activity finished"));
+        // } else {
+            const QString message = pretty_android_exception(result).arg(result);
+            emit processLaunchError(message);
+            Log::warning(message);
+            afterRun();
+        // }
     }
-    else {
-        const QString message = pretty_android_exception(result).arg(result);
-        emit processLaunchError(message);
-        Log::warning(message);
-        afterRun();
-    }
-
 #endif // Q_OS_ANDROID
 }
 
