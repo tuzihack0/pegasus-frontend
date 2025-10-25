@@ -1,24 +1,11 @@
 // Pegasus Frontend
-// Copyright (C) 2017-2019  Mátyás Mustoha
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
+// Copyright ...
+// GPLv3-or-later
 #pragma once
 
 #include <QString>
-
+#include <QStringList>   // 新增：需要 QStringList
+#include <functional>    // 新增：request_saf_permission 的 std::function
 
 namespace android {
 
@@ -31,8 +18,13 @@ bool has_external_storage_access();
 QStringList granted_paths();
 void request_saf_permission(const std::function<void()>&);
 
+// 旧有接口
 QString run_am_call(const QStringList&);
 QString to_content_uri(const QString&);
 QString to_document_uri(const QString&);
+
+// 新增接口：把 "am start" 的参数在应用内解析并启动（支持 --display）
+// 成功返回空串；失败返回错误字符串（可回退到 run_am_call）
+QString start_activity_from_am_args(const QStringList& args);
 
 } // namespace android
