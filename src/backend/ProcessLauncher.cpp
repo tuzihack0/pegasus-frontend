@@ -127,6 +127,31 @@ QString pretty_android_exception(const QString& error)
     return LOGMSG("Failed to run the launch command: %1");
 }
 #endif // Q_OS_ANDROID
++#else // Q_OS_ANDROID
++    // 先尝试“内联”解析 am 参数并在应用内启动（可支持 --display）
++    QString result = android::start_activity_from_am_args(args);
++    if (result.isEmpty()) {
++        emit processLaunchOk();
++        Log::info(LOGMSG("Activity finished"));
++    } else {
++        // 解析/本地启动失败，回退到旧路径（如你的工程里仍有 android::run_am_call，可继续调用）
++        // 如果没有旧实现，直接报错即可。
++        #if defined(HAVE_OLD_RUN_AM_CALL)
++        result = android::run_am_call(args);
++        if (result.isEmpty()) {
++            emit processLaunchOk();
++            Log::info(LOGMSG("Activity finished"));
++        } else
++        #endif
++        {
++            const QString message = pretty_android_exception(result).arg(result);
++            emit processLaunchError(message);
++            Log::warning(message);
++            afterRun();
++        }
++    }
++
++#endif // Q_OS_ANDROID
 } // namespace
 
 
