@@ -1,19 +1,6 @@
 // Pegasus Frontend
-// Copyright (C) 2017-2019  Mátyás Mustoha
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <http://www.gnu.org/licenses/>.
-
+// Copyright ...
+// GPLv3-or-later
 
 #include "AndroidHelpers.h"
 
@@ -25,7 +12,6 @@
 #include <QtAndroidExtras/QAndroidJniEnvironment>
 #include <QtAndroidExtras/QAndroidJniObject>
 #include <QUrl>
-
 
 namespace {
 QStringList query_string_array(const char* const method)
@@ -48,7 +34,6 @@ QStringList query_string_array(const char* const method)
     return out;
 }
 } // namespace
-
 
 namespace android {
 
@@ -106,7 +91,6 @@ bool has_external_storage_access()
 {
     using namespace QtAndroid;
 
-
     // Android 11
     if (androidSdkVersion() >= 30) {
         static constexpr auto JNI_METHOD = "getAllStorageAccess";
@@ -114,7 +98,6 @@ bool has_external_storage_access()
         if (!has_permission)
             return false;
     }
-
 
     const QStringList required_permissions {
         QStringLiteral("android.permission.WRITE_EXTERNAL_STORAGE"),
@@ -206,6 +189,41 @@ QString to_document_uri(const QString& path)
         .arg(uri_encode(rel_dir), uri_encode(rel_path));
 
     return uri_str;
+}
+
+/* ------------------------- 新增：应用内解析并启动（支持 --display） ------------------------- */
+
+QString start_activity_from_am_args(const QStringList& args)
+{
+    QAndroidJniEnvironment env;
+
+    // 构造 Java String[] 参数
+    jclass stringClass = env->FindClass("java/lang/String");
+    if (!stringClass || env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return QStringLiteral("JNI: java/lang/String not found");
+    }
+    jobjectArray jArgs = env->NewObjectArray(args.size(), stringClass, nullptr);
+    for (int i = 0; i < args.size(); ++i) {
+        QAndroidJniObject jstr = QAndroidJniObject::fromString(args.at(i));
+        env->SetObjectArrayElement(jArgs, i, jstr.object<jstring>());
+    }
+
+    // 调用：org.pegasus_frontend.android.AndroidHelpers.startActivityFromAmArgs(String[]) : String
+    QAndroidJniObject res = QAndroidJniObject::callStaticObjectMethod(
+        "org/pegasus_frontend/android/AndroidHelpers",
+        "startActivityFromAmArgs",
+        "([Ljava/lang/String;)Ljava/lang/String;",
+        jArgs
+    );
+
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        return QStringLiteral("Java exception");
+    }
+
+    return res.isValid() ? res.toString() : QString();
 }
 
 } // namespace android
