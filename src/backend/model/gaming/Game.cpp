@@ -66,6 +66,13 @@ Game& Game::setFavorite(bool new_val)
     return *this;
 }
 
+Game& Game::setDisliked(bool new_val)
+{
+    m_data.is_disliked = new_val;
+    emit dislikedChanged();
+    return *this;
+}
+
 Game& Game::setMissing(bool new_val)
 {
     m_data.missing = new_val;
