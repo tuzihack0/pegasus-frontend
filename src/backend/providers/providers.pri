@@ -11,6 +11,7 @@ SOURCES += \
     $$PWD/SearchContext.cpp \
 
 include(pegasus_favorites/pegasus_favorites.pri)
+include(pegasus_dislikes/pegasus_dislikes.pri)
 include(pegasus_metadata/pegasus_metadata.pri)
 include(pegasus_media/pegasus_media.pri)
 include(pegasus_playtime/pegasus_playtime.pri)
