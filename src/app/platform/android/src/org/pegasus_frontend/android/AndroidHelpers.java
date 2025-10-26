@@ -30,8 +30,14 @@ public final class AndroidHelpers {
      */
     public static String startActivityFromAmArgs(String[] args) {
         try {
-            // 1) 解析参数 -> Intent（支持 --display 等）
-            LinkedList<String> list = new LinkedList<>(Arrays.asList(args));
+        // 1) 解析参数 -> Intent（支持 --display 等）
+        LinkedList<String> list = new LinkedList<>(Arrays.asList(args));
+        // 兼容两种调用：如果第一个 token 是 "start"，剔除之
+        if (!list.isEmpty() && "start".equalsIgnoreCase(list.peekFirst())) {
+            list.removeFirst();
+        }
+        // （可选）调试：打印剩余参数
+        Log.d(TAG, "am args after trim: " + list);
             Intent intent = IntentHelper.parseIntentCommand(list);
 
             // 2) 选择一个可用的 Context（Qt Activity 优先）
