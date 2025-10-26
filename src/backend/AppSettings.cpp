@@ -22,7 +22,7 @@
 #include "parsers/SettingsFile.h"
 
 #include "providers/pegasus_favorites/Favorites.h"
-#include "providers/pegasus_favorites/Dislikes.h"
+#include "providers/pegasus_dislikes/Dislikes.h"
 #include "providers/pegasus_media/MediaProvider.h"
 #include "providers/pegasus_metadata/PegasusProvider.h"
 #include "providers/pegasus_playtime/PlaytimeStats.h"
