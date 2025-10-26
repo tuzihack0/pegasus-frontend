@@ -216,6 +216,10 @@ Backend::Backend(const CliArgs& args)
 
     QObject::connect(m_api_public, &model::ApiObject::favoritesChanged,
                      [this](){ onFavoritesChanged(); });
+    
+    QObject::connect(m_api_public, &model::ApiObject::dislikesChanged,
+                 [this](){ onDislikesChanged(); });
+
 
     // Loading progress
     QObject::connect(m_providerman, &ProviderManager::scanStarted,
@@ -264,6 +268,12 @@ void Backend::onScanFinished()
 void Backend::onFavoritesChanged()
 {
     m_providerman->onFavoritesChanged(m_api_public->allGames()->entries());
+}
+
+void Backend::onDislikesChanged()
+{
+    // 将当前所有游戏列表传给 ProviderManager，让 dislikes provider 去落盘
+    m_providerman->onDislikesChanged(m_api_public->allGames()->entries());
 }
 
 void Backend::onProcessLaunched()
