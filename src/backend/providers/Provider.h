@@ -52,6 +52,7 @@ public:
 
     // events
     virtual void onGameFavoriteChanged(const std::vector<model::Game*>&) {}
+    virtual void onGameDislikeChanged(const std::vector<model::Game*>&) {} 
     virtual void onGameLaunched(model::GameFile* const) {}
     virtual void onGameFinished(model::GameFile* const) {}
 
