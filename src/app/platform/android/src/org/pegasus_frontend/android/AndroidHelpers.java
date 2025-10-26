@@ -67,42 +67,47 @@ public final class AndroidHelpers {
      * 3) 其他情况 -> 使用主屏（displays[0]）。
      */
     private static int chooseBestDisplayId(Context ctx, Integer preferredDisplayId) {
-        DisplayManager dm = (DisplayManager) ctx.getSystemService(Context.DISPLAY_SERVICE);
-        Display[] displays = (dm != null) ? dm.getDisplays() : new Display[0];
+    DisplayManager dm = (DisplayManager) ctx.getSystemService(Context.DISPLAY_SERVICE);
+    Display[] displays = (dm != null) ? dm.getDisplays() : new Display[0];
 
-        if (displays.length == 0) {
-            Log.w(TAG, "No displays reported by DisplayManager; fallback to 0");
-            return 0;
-        }
-
-        // 打印一下可见的显示器，便于排错
-        if (BuildConfig.DEBUG) {
-            for (Display d : displays) {
-                Log.d(TAG, "Display: id=" + d.getDisplayId() + ", name=" + d.getName());
-            }
-        }
-
-        // 1) 优先用显式传入的 id
-        if (preferredDisplayId != null) {
-            for (Display d : displays) {
-                if (d.getDisplayId() == preferredDisplayId) {
-                    return preferredDisplayId;
-                }
-            }
-            Log.w(TAG, "Preferred displayId not found: " + preferredDisplayId + ", will auto-pick");
-        }
-
-        // 2) 有多个显示器：选择第一个非主屏
-        int primaryId = displays[0].getDisplayId();
-        for (int i = 1; i < displays.length; i++) {
-            if (displays[i].getDisplayId() != primaryId) {
-                return displays[i].getDisplayId();
-            }
-        }
-
-        // 3) 仅主屏
-        return primaryId;
+    if (displays.length == 0) {
+        Log.w(TAG, "No displays reported by DisplayManager; fallback to 0");
+        return 0;
     }
+
+    int currentDisplayId = 0;
+    // 获取当前 context 所在的 display（API 17+）
+    try {
+        Display current = ctx.getDisplay();
+        if (current != null) currentDisplayId = current.getDisplayId();
+    } catch (Throwable ignored) {}
+
+    // 打印调试信息
+    for (Display d : displays) {
+        Log.d(TAG, "Display id=" + d.getDisplayId() + " name=" + d.getName());
+    }
+
+    // 1) 如果显式给了 --display N 且存在，就优先用
+    if (preferredDisplayId != null) {
+        for (Display d : displays) {
+            if (d.getDisplayId() == preferredDisplayId) return preferredDisplayId;
+        }
+        Log.w(TAG, "Preferred displayId not found: " + preferredDisplayId);
+    }
+
+    // 2) 若有多个屏幕，优先选一个 != 当前屏幕 的显示器
+    if (displays.length > 1) {
+        for (Display d : displays) {
+            if (d.getDisplayId() != currentDisplayId) {
+                Log.i(TAG, "Switching display from " + currentDisplayId + " to " + d.getDisplayId());
+                return d.getDisplayId();
+            }
+        }
+    }
+
+    // 3) 否则仍在当前屏幕启动
+    return currentDisplayId;
+}
 
     /* ===================== 启动：自动选择显示器并启动 Activity ===================== */
     private static void startActivityAutoDisplay(Context ctx, Intent intent, Integer preferredDisplayId) {
