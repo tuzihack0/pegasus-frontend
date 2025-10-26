@@ -36,6 +36,7 @@ public:
     void onGameLaunched(model::GameFile* const) const;
     void onGameFinished(model::GameFile* const) const;
     void onFavoritesChanged(const std::vector<model::Game*>&) const;
+    void onDislikesChanged(const std::vector<model::Game*>&) const;
 
     std::vector<model::Collection*>& foundCollections() { return m_found_collections; }
     std::vector<model::Game*>& foundGames() { return m_found_games; }
