@@ -53,6 +53,7 @@ private:
     void onScanRequested();
     void onScanFinished();
     void onFavoritesChanged();
+    void dislikesChanged(); 
     void onProcessLaunched();
     void onProcessFinished();
 };
