@@ -1,6 +1,7 @@
 package org.pegasus_frontend.android;
 
 import android.app.Activity;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
@@ -12,6 +13,15 @@ import java.util.LinkedList;
 
 public final class AndroidHelpers {
     private static final String TAG = "AndroidHelpers";
+
+    // 统一安全获取 Qt 提供的 Context（Qt 5.15 没有 QtNative.context()）
+    private static Context getQtContext() {
+        Activity act = QtNative.activity();
+        if (act != null) return act;
+        Service svc = QtNative.service();
+        if (svc != null) return svc;
+        return null;
+    }
 
     /**
      * 把 `am start ...` 的参数在应用内解析为 Intent，并尽量在指定 Display 启动。
@@ -25,8 +35,7 @@ public final class AndroidHelpers {
             Intent intent = IntentHelper.parseIntentCommand(list);
 
             // 2) 选择一个可用的 Context（Qt Activity 优先）
-            Context ctx = QtNative.activity();
-            if (ctx == null) ctx = QtNative.context();
+            Context ctx = getQtContext();
             if (ctx == null) return "No context available";
 
             // 3) 用带 ActivityOptions 的方式启动（内部会处理 NEW_TASK/MULTIPLE_TASK/Display 校验）
