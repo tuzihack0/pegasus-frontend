@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-
 #include "ProcessLauncher.h"
 
 #include "Log.h"
@@ -32,11 +31,15 @@
 #include <QDir>
 #include <QUrl>
 #include <QRegularExpression>
-
+#include <QProcess>
+#include <QProcessEnvironment>
 
 namespace {
+
+// 日志分隔线
 static constexpr auto SEPARATOR = "----------------------------------------";
 
+// {env.X} → 环境变量替换
 void replace_env_vars(QString& param)
 {
     const auto env = QProcessEnvironment::systemEnvironment();
@@ -53,6 +56,7 @@ void replace_env_vars(QString& param)
     }
 }
 
+// {file.*} 占位符替换
 void replace_variables(QString& param, const QFileInfo& finfo)
 {
     const QString abs_path = finfo.absoluteFilePath();
@@ -83,11 +87,13 @@ bool contains_slash(const QString& str)
     return str.contains(QChar('/')) || str.contains(QChar('\\'));
 }
 
+// 用于日志把 command + args 串起来
 QString serialize_command(const QString& cmd, const QStringList& args)
 {
     return (QStringList(QDir::toNativeSeparators(cmd)) + args).join(QLatin1String("`,`"));
 }
 
+// QProcess 错误描述
 QString processerror_to_string(QProcess::ProcessError error)
 {
     switch (error) {
@@ -109,6 +115,7 @@ QString processerror_to_string(QProcess::ProcessError error)
 }
 
 #ifdef Q_OS_ANDROID
+// Android 侧错误美化
 QString pretty_android_exception(const QString& error)
 {
     if (error.startsWith(QLatin1String("android.content.ActivityNotFoundException"))) {
@@ -127,35 +134,11 @@ QString pretty_android_exception(const QString& error)
     return LOGMSG("Failed to run the launch command: %1");
 }
 #endif // Q_OS_ANDROID
-#else // Q_OS_ANDROID
-    // 先尝试“内联”解析 am 参数并在应用内启动（可支持 --display）
-    QString result = android::start_activity_from_am_args(args);
-    if (result.isEmpty()) {
-        emit processLaunchOk();
-        Log::info(LOGMSG("Activity finished"));
-    } else {
-        // 解析/本地启动失败，回退到旧路径（如你的工程里仍有 android::run_am_call，可继续调用）
-        // 如果没有旧实现，直接报错即可。
-        #if defined(HAVE_OLD_RUN_AM_CALL)
-        result = android::run_am_call(args);
-        if (result.isEmpty()) {
-            emit processLaunchOk();
-            Log::info(LOGMSG("Activity finished"));
-        } else
-        #endif
-        {
-            const QString message = pretty_android_exception(result).arg(result);
-            emit processLaunchError(message);
-            Log::warning(message);
-            afterRun();
-        }
-    }
 
-#endif // Q_OS_ANDROID
 } // namespace
 
-
 namespace helpers {
+
 QString abs_launchcmd(const QString& cmd, const QString& base_dir)
 {
     Q_ASSERT(!cmd.isEmpty());
@@ -173,8 +156,12 @@ QString abs_workdir(const QString& workdir, const QString& base_dir, const QStri
 
     return ::clean_abs_path(QFileInfo(base_dir, workdir));
 }
+
 } // namespace helpers
 
+// --------------------------
+// ProcessLauncher methods
+// --------------------------
 
 ProcessLauncher::ProcessLauncher(QObject* parent)
     : QObject(parent)
@@ -195,7 +182,6 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
         game.launchCmd();
 #endif
 
-
     // TODO: in the future, check the gamefile's own launch command first
 
     QStringList args = ::utils::tokenize_command(raw_launch_cmd);
@@ -213,6 +199,7 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
     command = helpers::abs_launchcmd(command, game.launchCmdBasedir());
 
 #ifdef Q_OS_ANDROID
+    // 只接受 "am start ..." 形式（与原逻辑一致）
     const bool android_command_valid = command.toLower() == QLatin1String("am");
     const bool android_args_valid = !args.isEmpty() && args.first().toLower() == QLatin1String("start");
     if (!android_command_valid || !android_args_valid) {
@@ -224,6 +211,7 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
 #endif
 
 #ifdef Q_OS_WINDOWS
+    // Windows: 支持 .lnk 快捷方式
     const QFileInfo command_finfo(command);
     if (command_finfo.isShortcut()) {
         args = QStringList {
@@ -243,7 +231,6 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
     replace_variables(workdir, gamefile.fileinfo());
     workdir = helpers::abs_workdir(workdir, game.launchCmdBasedir(), default_workdir);
 
-
     beforeRun(gamefile.fileinfo().absoluteFilePath());
     runProcess(command, args, workdir);
 }
@@ -251,20 +238,20 @@ void ProcessLauncher::onLaunchRequested(const model::GameFile* q_gamefile)
 void ProcessLauncher::runProcess(const QString& command, const QStringList& args, const QString& workdir)
 {
     Log::info(LOGMSG("Executing command: [`%1`]").arg(serialize_command(command, args)));
-    Log::info(LOGMSG("Working directory: `%3`").arg(::pretty_path(workdir)));
+    Log::info(LOGMSG("Working directory: `%1`").arg(::pretty_path(workdir)));
 
 #ifndef Q_OS_ANDROID
-    // -------- 非 Android 平台：沿用原有 QProcess 逻辑 --------
+    // -------- 非 Android 平台：沿用 QProcess 逻辑 --------
     Q_ASSERT(!m_process);
     m_process = new QProcess(this);
 
-    // set up signals and slots
+    // 信号连接
     connect(m_process, &QProcess::started, this, &ProcessLauncher::onProcessStarted);
     connect(m_process, &QProcess::errorOccurred, this, &ProcessLauncher::onProcessError);
     connect(m_process, static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
             this, &ProcessLauncher::onProcessFinished);
 
-    // run the command
+    // 启动
     m_process->setProcessChannelMode(QProcess::ForwardedChannels);
     m_process->setInputChannelMode(QProcess::ForwardedInputChannel);
     m_process->setWorkingDirectory(workdir);
@@ -272,15 +259,14 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
     m_process->waitForStarted(-1);
 
 #else // Q_OS_ANDROID
-    // -------- Android 平台：优先应用内解析 am start（支持 --display）--------
-    // 这里会在 Java 侧把 --display 转成 ActivityOptions#setLaunchDisplayId
+    // -------- Android 平台：使用 AndroidHelpers 解析/执行 am start --------
     QString result = android::start_activity_from_am_args(args);
 
     if (result.isEmpty()) {
         emit processLaunchOk();
         Log::info(LOGMSG("Activity finished"));
     } else {
-        // 如需回退到外部 am，可在此调用 android::run_am_call(args)
+        // 若需回退到外部 am，可在此启用：
         // result = android::run_am_call(args);
         // if (result.isEmpty()) {
         //     emit processLaunchOk();
@@ -306,14 +292,17 @@ void ProcessLauncher::onTeardownComplete()
 
 void ProcessLauncher::onProcessStarted()
 {
+#ifndef Q_OS_ANDROID
     Q_ASSERT(m_process);
     Log::info(LOGMSG("Process %1 started").arg(m_process->processId()));
+#endif
     Log::info(SEPARATOR);
     emit processLaunchOk();
 }
 
 void ProcessLauncher::onProcessError(QProcess::ProcessError error)
 {
+#ifndef Q_OS_ANDROID
     Q_ASSERT(m_process);
 
     const QString message = processerror_to_string(error).arg(m_process->program());
@@ -323,20 +312,26 @@ void ProcessLauncher::onProcessError(QProcess::ProcessError error)
         case QProcess::NotRunning:
             emit processLaunchError(message);
             Log::warning(message);
-            afterRun(); // finished() won't run
+            afterRun(); // finished() 不会触发
             break;
 
         case QProcess::Running:
             emit processRuntimeError(message);
             break;
     }
+#else
+    Q_UNUSED(error);
+#endif
 }
 
 void ProcessLauncher::onProcessFinished(int exitcode, QProcess::ExitStatus exitstatus)
 {
+#ifndef Q_OS_ANDROID
     Q_ASSERT(m_process);
+#endif
     Log::info(SEPARATOR);
 
+#ifndef Q_OS_ANDROID
     switch (exitstatus) {
         case QProcess::NormalExit:
             if (exitcode == 0)
@@ -348,6 +343,10 @@ void ProcessLauncher::onProcessFinished(int exitcode, QProcess::ExitStatus exits
             Log::warning(LOGMSG("The external program has crashed"));
             break;
     }
+#else
+    Q_UNUSED(exitcode);
+    Q_UNUSED(exitstatus);
+#endif
 
     afterRun();
 }
