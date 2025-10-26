@@ -145,6 +145,15 @@ void ProviderManager::onFavoritesChanged(const std::vector<model::Game*>& all_ga
         provider->onGameFavoriteChanged(all_games);
 }
 
+void ProviderManager::onDislikesChanged(const std::vector<model::Game*>& all_games) const
+{
+    if (m_future.isRunning())
+        return;
+
+    for (const auto& provider : AppSettings::providers())
+        provider->onGameDislikeChanged(all_games);
+}
+
 void ProviderManager::onGameLaunched(model::GameFile* const game) const
 {
     if (m_future.isRunning())
