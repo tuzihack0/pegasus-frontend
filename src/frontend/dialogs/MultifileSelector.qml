@@ -18,7 +18,56 @@ FocusScope {
     anchors.fill: parent
     visible: shade.opacity > 0
 
-    onActiveFocusChanged: state = activeFocus ? "open" : ""
+    property real minDialogWidth: root.height * 0.66
+    // 上限 = 屏幕 90%
+    property real maxDialogWidth: root.width * 0.90
+    // 动态计算结果
+    property real autoDialogWidth: 0
+
+    // 下一帧触发，避免初次创建时尺寸未就绪
+    Timer {
+        id: recomputeTimer
+        interval: 0
+        repeat: false
+        onTriggered: recomputeDialogWidth()
+    }
+
+    // 打开时设置状态 + 重新计算宽度
+    onActiveFocusChanged: {
+        state = activeFocus ? "open" : ""
+        if (activeFocus) recomputeTimer.restart()
+    }
+
+    // CSV 名称映射变化时，可能影响 label 文本 => 重新测量
+    onNameMapRevChanged: recomputeTimer.restart()
+
+    function recomputeDialogWidth() {
+        // 标题需要的宽（implicitWidth + padding*2）
+        var needTitle = (titleText ? (titleText.implicitWidth + titleText.padding * 2) : 0)
+
+        // 列表可见项里最长文本的宽（使用 delegate 的 label.implicitWidth）
+        var maxVisible = 0
+        var kids = entryList.contentItem ? entryList.contentItem.children : []
+        for (var i = 0; i < kids.length; ++i) {
+            var d = kids[i]
+            if (d && d.label && d.label.implicitWidth && d.label.implicitWidth > maxVisible)
+                maxVisible = d.label.implicitWidth
+        }
+        // 给列表左右留一点空白
+        var needList = maxVisible + vpx(40)
+
+        var need = Math.max(needTitle, needList)
+        autoDialogWidth = Math.min(Math.max(minDialogWidth, Math.ceil(need)), maxDialogWidth)
+    }
+
+    // （可选）在进入 open 状态后再刷新一次，防止异步创建导致第一次测量偏小
+    Timer {
+        interval: 50
+        running: state === "open"
+        repeat: false
+        onTriggered: recomputeTimer.restart()
+    }
+    // === 自适应宽度结束 ===
 
     Keys.onPressed: {
         if (api.keys.isCancel(event) && !event.isAutoRepeat) {
@@ -40,70 +89,17 @@ FocusScope {
         resolveConfigDir(function () {
             parseArcadeMapNameFromSettings(function () {
                 loadArcadeCsv()
+                // CSV 可能刚加载完成，补一次计算
+                recomputeTimer.restart()
             })
         })
     }
 
-// —— 自适应宽度（最小改动版） ——
-// 下限 = 你原来的宽度表达式
-property real minDialogWidth: root.height * 0.66
-// 上限 = 屏宽 90%
-property real maxDialogWidth: root.width * 0.90
-// 动态计算得到的宽度
-property real autoDialogWidth: 0
-
-// 下一帧触发，避免创建阶段尺寸未就绪
-Timer {
-    id: recomputeTimer
-    interval: 0
-    repeat: false
-    onTriggered: recomputeDialogWidth()
-}
-
-// 打开弹窗时触发一次计算
-onActiveFocusChanged: {
-    state = activeFocus ? "open" : ""
-    if (activeFocus) recomputeTimer.restart()
-}
-
-// 如果你的文件里有 nameMap/nameMapRev（CSV 逻辑），加上这行会更稳：
-// onNameMapRevChanged: recomputeTimer.restart()
-
-// 计算：标题宽度 vs. 列表可见项中最长一条的宽度
-function recomputeDialogWidth() {
-    // 标题需求宽度（implicitWidth 含字体测量，+ padding）
-    var needTitle = (titleText ? (titleText.implicitWidth + titleText.padding * 2) : 0)
-
-    // 列表可见项最长文本的宽度（用已创建的 delegate 的 label 作为测量）
-    var maxVisible = 0
-    var kids = entryList.contentItem ? entryList.contentItem.children : []
-    for (var i = 0; i < kids.length; ++i) {
-        var d = kids[i]
-        if (d && d.label && d.label.implicitWidth && d.label.implicitWidth > maxVisible)
-            maxVisible = d.label.implicitWidth
-    }
-    // 给列表左右留一点空白
-    var needList = maxVisible + vpx(40)
-
-    var need = Math.max(needTitle, needList)
-    autoDialogWidth = Math.min(Math.max(minDialogWidth, Math.ceil(need)), maxDialogWidth)
-}
-
-
-    // 解析配置目录：优先用外部传入的 configDir；否则在常见路径中探测
     function resolveConfigDir(done) {
         var candidates = []
-
-        // 1) 若外部传入，则第一优先
         if (configDir && configDir.length) candidates.push(String(configDir))
-
-        // 2) Android 常见位置（你当前版本的精简列表）
         candidates.push("/storage/emulated/0/pegasus-frontend")
-
-        // 3) 通用兜底（不写盘符）
         candidates.push("/Pegasus/config")
-
-        // 去重 & 清洗
         var seen = {}, uniq = []
         for (var i=0;i<candidates.length;i++) {
             var p = String(candidates[i] || "").trim()
@@ -111,8 +107,6 @@ function recomputeDialogWidth() {
             p = p.replace(/^file:\/\//, "")
             if (!seen[p]) { seen[p] = true; uniq.push(p) }
         }
-
-        // 有 settings.txt 或 game_dirs.txt 的就认为是配置目录；否则用第一个
         var idx = 0
         function tryNext() {
             if (idx >= uniq.length) {
@@ -139,7 +133,7 @@ function recomputeDialogWidth() {
             if (xhr.readyState === XMLHttpRequest.DONE)
                 cb(xhr.status === 0 || xhr.status === 200)
         }
-        xhr.open("GET", url) // 用 GET，避免某些平台 HEAD 不可用
+        xhr.open("GET", url)
         xhr.send()
     }
 
@@ -151,7 +145,6 @@ function recomputeDialogWidth() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 if (xhr.status === 0 || xhr.status === 200) {
                     var txt = xhr.responseText || ""
-                    // arcade_map=arcade.csv / arcade_map : arcade_zh.csv
                     var m = txt.match(/^\s*arcade_map\s*[:=]\s*(.+?)\s*$/mi)
                     if (m && m[1]) {
                         var fname = m[1].trim().replace(/^"+|"+$/g, "")
@@ -165,11 +158,10 @@ function recomputeDialogWidth() {
         xhr.send()
     }
 
-    // ★ 键与值规范化工具：小写、NFC、去空格、URL 解码
     function norm(s) {
         if (!s) return ""
         s = String(s)
-        try { s = decodeURIComponent(s) } catch(e) {} // 容错 %20 等
+        try { s = decodeURIComponent(s) } catch(e) {}
         try { s = s.normalize("NFC") } catch(e) {}
         return s.trim().toLowerCase()
     }
@@ -182,7 +174,6 @@ function recomputeDialogWidth() {
         return s
     }
 
-    // ★ 仅无扩展名键（cvs 内不含扩展名）
     function stemNoExt(p) {
         var b = baseName(p)
         var dot = b.lastIndexOf(".")
@@ -205,20 +196,19 @@ function recomputeDialogWidth() {
                             return
                         }
                     }
-                    next && next() // 失败则进入下一重试
+                    next && next()
                 }
             }
             xhr.open("GET", url)
             xhr.send()
         }
 
-        // 先按设置/默认的文件名加载，失败则尝试 .csv/.cvs 互换
         var triedAlt = false
         tryLoad(resolvedMapFileName, function () {
             if (triedAlt) {
                 console.warn("Arcade map not found:", resolvedMapFileName)
                 nameMap = ({})
-                nameMapRev++     // ★ 失败也要触发一次重算
+                nameMapRev++
                 return
             }
             triedAlt = true
@@ -235,9 +225,7 @@ function recomputeDialogWidth() {
 
     function parseCsvToMap(text) {
         if (!text) return ({})
-        // 处理 UTF-8 BOM
         if (text.charAt(0) === "\uFEFF") text = text.slice(1)
-
         var map = {}
         var lines = text.split(/\r?\n/)
         for (var i=0; i<lines.length; i++) {
@@ -251,14 +239,11 @@ function recomputeDialogWidth() {
             var rawKey = parts[0].trim()
             var val = parts.slice(1).join("|").trim()
 
-            // 去除特殊不可见空格（如 NO-BREAK SPACE），以防 csv 来源不同编辑器
             rawKey = rawKey.replace(/\u00A0/g, " ")
             val = val.replace(/\u00A0/g, " ")
 
-            // 跳过表头：第一列为 "name"（不区分大小写）
             if (i === 0 && norm(rawKey) === "name") continue
 
-            // ★ 仅写无扩展名键
             var noExt = stemNoExt(rawKey)
             if (noExt) map[noExt] = val
         }
@@ -266,17 +251,14 @@ function recomputeDialogWidth() {
     }
 
     function displayNameFor(anyPathOrName /* , rev 占位触发重算 */) {
-        // ★ 依赖 nameMapRev：调用处会传入它来强制重算绑定
         var k = stemNoExt(anyPathOrName)
         if (nameMap && nameMap.hasOwnProperty(k)) return nameMap[k]
-
-        // 友好回退：显示“文件名（无扩展名）”而非绝对路径
         var b = baseName(anyPathOrName)
         var dot = b.lastIndexOf(".")
         if (dot > 0) b = b.slice(0, dot)
         return b || String(anyPathOrName || "")
     }
-    // ==================== ★ 映射 CSV 支持（无 Qt.labs.platform 版本） 结束 ====================
+    // ==================== ★ 映射 CSV 支持 结束 ====================
 
     Shade {
         id: shade
@@ -325,7 +307,6 @@ function recomputeDialogWidth() {
             ListView {
                 id: entryList
                 readonly property int itemHeight: root.textSize * 3
-                // ★ 兼容 model.count / model.length 两种模型
                 readonly property int countCompat: (model && model.count !== undefined) ? model.count
                                                : (model && model.length !== undefined) ? model.length : 0
                 readonly property int fullHeight: countCompat * itemHeight
@@ -362,10 +343,10 @@ function recomputeDialogWidth() {
                     Text {
                         id: label
                         anchors.centerIn: parent
-                        // ★ 带上 nameMapRev 触发重算；同时支持 path/name 两种来源
                         text: displayNameFor(modelData.path || modelData.name, nameMapRev)
                         color: "#eee"
                         font { pixelSize: root.textSize; family: globalFonts.sans }
+                        elide: Text.ElideRight 
                     }
 
                     MouseArea {
