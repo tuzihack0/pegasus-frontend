@@ -51,7 +51,7 @@ FocusScope {
         // 1) 若外部传入，则第一优先
         if (configDir && configDir.length) candidates.push(String(configDir))
 
-        // 2) Android 常见位置
+        // 2) Android 常见位置（你当前版本的精简列表）
         candidates.push("/storage/emulated/0/pegasus-frontend")
 
         // 3) 通用兜底（不写盘符）
@@ -136,15 +136,11 @@ FocusScope {
         return s
     }
 
-    function stemAndStemExt(p) {
-        // 返回两个键：去扩展名 / 带扩展名（均已规范化）
+    // ★ 仅无扩展名键（cvs 内不含扩展名）
+    function stemNoExt(p) {
         var b = baseName(p)
         var dot = b.lastIndexOf(".")
-        var stem = (dot > 0) ? b.slice(0, dot) : b
-        return {
-            noExt: norm(stem),
-            withExt: norm(b)
-        }
+        return norm(dot > 0 ? b.slice(0, dot) : b)
     }
 
     function loadArcadeCsv() {
@@ -216,23 +212,17 @@ FocusScope {
             // 跳过表头：第一列为 "name"（不区分大小写）
             if (i === 0 && norm(rawKey) === "name") continue
 
-            // 同时写入两种键：去扩展 / 带扩展（均规范化）
-            var b = baseName(rawKey)
-            var dot = b.lastIndexOf(".")
-            var noExt = norm(dot > 0 ? b.slice(0, dot) : b)
-            var withExt = norm(b)
-
+            // ★ 仅写无扩展名键
+            var noExt = stemNoExt(rawKey)
             if (noExt) map[noExt] = val
-            if (withExt) map[withExt] = val
         }
         return map
     }
 
     function displayNameFor(anyPathOrName /* , rev 占位触发重算 */) {
         // ★ 依赖 nameMapRev：调用处会传入它来强制重算绑定
-        var k = stemAndStemExt(anyPathOrName)
-        if (nameMap && nameMap.hasOwnProperty(k.noExt)) return nameMap[k.noExt]
-        if (nameMap && nameMap.hasOwnProperty(k.withExt)) return nameMap[k.withExt]
+        var k = stemNoExt(anyPathOrName)
+        if (nameMap && nameMap.hasOwnProperty(k)) return nameMap[k]
 
         // 友好回退：显示“文件名（无扩展名）”而非绝对路径
         var b = baseName(anyPathOrName)
