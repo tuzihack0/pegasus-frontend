@@ -5,7 +5,7 @@ FocusScope {
     id: root
     property var game: null
 
-    // ★ 外部可传入配置目录（如主题已知自己的配置路径）
+    // 外部可传入配置目录（如主题已知自己的配置路径）
     property string configDir: ""    // 例如："/storage/emulated/0/pegasus-frontend"
 
     readonly property int textSize: vpx(16)
@@ -27,13 +27,13 @@ FocusScope {
         }
     }
 
-    // ==================== ★ 映射 CSV 支持（无 Qt.labs.platform 版本） 开始 ====================
+    // ==================== 映射 CSV 支持（无 Qt.labs.platform 版本） ====================
     // 修复点：增加 nameMapRev，作为依赖触发器，解决偶发不刷新问题
     property var nameMap: ({})
     property int nameMapRev: 0
 
     property string resolvedConfigDir: ""
-    // 修复点：默认使用 .csv；后续会做 .csv/.cvs 互换重试
+    // 默认使用 .csv；会做 .csv/.cvs 互换重试
     property string resolvedMapFileName: "arcade.csv"
 
     Component.onCompleted: {
@@ -44,20 +44,12 @@ FocusScope {
         })
     }
 
-    // 解析配置目录：优先用外部传入的 configDir；否则在常见路径中探测
     function resolveConfigDir(done) {
         var candidates = []
-
-        // 1) 若外部传入，则第一优先
         if (configDir && configDir.length) candidates.push(String(configDir))
-
-        // 2) Android 常见位置（你当前版本的精简列表）
         candidates.push("/storage/emulated/0/pegasus-frontend")
-
-        // 3) 通用兜底（不写盘符）
         candidates.push("/Pegasus/config")
 
-        // 去重 & 清洗
         var seen = {}, uniq = []
         for (var i=0;i<candidates.length;i++) {
             var p = String(candidates[i] || "").trim()
@@ -66,7 +58,6 @@ FocusScope {
             if (!seen[p]) { seen[p] = true; uniq.push(p) }
         }
 
-        // 有 settings.txt 或 game_dirs.txt 的就认为是配置目录；否则用第一个
         var idx = 0
         function tryNext() {
             if (idx >= uniq.length) {
@@ -93,7 +84,7 @@ FocusScope {
             if (xhr.readyState === XMLHttpRequest.DONE)
                 cb(xhr.status === 0 || xhr.status === 200)
         }
-        xhr.open("GET", url) // 用 GET，避免某些平台 HEAD 不可用
+        xhr.open("GET", url)
         xhr.send()
     }
 
@@ -105,7 +96,6 @@ FocusScope {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 if (xhr.status === 0 || xhr.status === 200) {
                     var txt = xhr.responseText || ""
-                    // arcade_map=arcade.csv / arcade_map : arcade_zh.csv
                     var m = txt.match(/^\s*arcade_map\s*[:=]\s*(.+?)\s*$/mi)
                     if (m && m[1]) {
                         var fname = m[1].trim().replace(/^"+|"+$/g, "")
@@ -119,11 +109,10 @@ FocusScope {
         xhr.send()
     }
 
-    // ★ 键与值规范化工具：小写、NFC、去空格、URL 解码
     function norm(s) {
         if (!s) return ""
         s = String(s)
-        try { s = decodeURIComponent(s) } catch(e) {} // 容错 %20 等
+        try { s = decodeURIComponent(s) } catch(e) {}
         try { s = s.normalize("NFC") } catch(e) {}
         return s.trim().toLowerCase()
     }
@@ -136,7 +125,6 @@ FocusScope {
         return s
     }
 
-    // ★ 仅无扩展名键（cvs 内不含扩展名）
     function stemNoExt(p) {
         var b = baseName(p)
         var dot = b.lastIndexOf(".")
@@ -155,24 +143,23 @@ FocusScope {
                         var text = xhr.responseText
                         if (text && text.length) {
                             nameMap = parseCsvToMap(text)
-                            nameMapRev++   // ★ 强制依赖重算
+                            nameMapRev++
                             return
                         }
                     }
-                    next && next() // 失败则进入下一重试
+                    next && next()
                 }
             }
             xhr.open("GET", url)
             xhr.send()
         }
 
-        // 先按设置/默认的文件名加载，失败则尝试 .csv/.cvs 互换
         var triedAlt = false
         tryLoad(resolvedMapFileName, function () {
             if (triedAlt) {
                 console.warn("Arcade map not found:", resolvedMapFileName)
                 nameMap = ({})
-                nameMapRev++     // ★ 失败也要触发一次重算
+                nameMapRev++
                 return
             }
             triedAlt = true
@@ -189,7 +176,6 @@ FocusScope {
 
     function parseCsvToMap(text) {
         if (!text) return ({})
-        // 处理 UTF-8 BOM
         if (text.charAt(0) === "\uFEFF") text = text.slice(1)
 
         var map = {}
@@ -205,32 +191,106 @@ FocusScope {
             var rawKey = parts[0].trim()
             var val = parts.slice(1).join("|").trim()
 
-            // 去除特殊不可见空格（如 NO-BREAK SPACE），以防 csv 来源不同编辑器
             rawKey = rawKey.replace(/\u00A0/g, " ")
             val = val.replace(/\u00A0/g, " ")
 
-            // 跳过表头：第一列为 "name"（不区分大小写）
             if (i === 0 && norm(rawKey) === "name") continue
 
-            // ★ 仅写无扩展名键
             var noExt = stemNoExt(rawKey)
             if (noExt) map[noExt] = val
         }
         return map
     }
 
-    function displayNameFor(anyPathOrName /* , rev 占位触发重算 */) {
-        // ★ 依赖 nameMapRev：调用处会传入它来强制重算绑定
+    function displayNameFor(anyPathOrName) {
         var k = stemNoExt(anyPathOrName)
         if (nameMap && nameMap.hasOwnProperty(k)) return nameMap[k]
 
-        // 友好回退：显示“文件名（无扩展名）”而非绝对路径
         var b = baseName(anyPathOrName)
         var dot = b.lastIndexOf(".")
         if (dot > 0) b = b.slice(0, dot)
         return b || String(anyPathOrName || "")
     }
-    // ==================== ★ 映射 CSV 支持（无 Qt.labs.platform 版本） 结束 ====================
+    // ==================== /映射 CSV 支持 ====================
+
+
+    // ==================== ★ 动态宽度：根据文本长度自适应 ====================
+    // 最小宽度 = 原来比例；最大宽度 = 屏幕宽度 90%
+    property real minDialogWidth: root.height * 0.66
+    property real maxDialogWidth: root.width * 0.90
+    property real autoDialogWidth: 0
+
+    // 用于测量文字宽度（标题与列表项）
+    FontMetrics { id: titleFontMetrics; font.pixelSize: root.titleTextSize; font.family: globalFonts.sans }
+    FontMetrics { id: listFontMetrics;  font.pixelSize: root.textSize;      font.family: globalFonts.sans }
+
+    // 触发计算：弹窗打开、映射更新、模型数量变化
+    Timer {
+        id: recomputeTimer
+        interval: 0
+        repeat: false
+        onTriggered: recomputeDialogWidth()
+    }
+    onActiveFocusChanged: if (activeFocus) recomputeTimer.restart()
+    onStateChanged: if (state === "open") recomputeTimer.restart()
+    onNameMapRevChanged: recomputeTimer.restart()
+
+    // 当列表条目数量变化时也重算（兼容 count / length）
+    Connections {
+        target: entryList
+        onCountCompatChanged: recomputeTimer.restart()
+    }
+
+    function recomputeDialogWidth() {
+        // 左右留白（用于条目文字视觉空间）
+        var listPadding = vpx(40)
+        var titlePadding = titleText ? titleText.padding * 2 : vpx(24)
+
+        // 标题需要的宽度（单行宽度），标题 Text 已开启 wrap，当超过 max 会自动换行
+        var needTitle = 0
+        if (titleText && titleText.text && titleText.text.length) {
+            needTitle = titleFontMetrics.advanceWidth(titleText.text) + titlePadding
+        }
+
+        // 列表项中最长的一条的宽度
+        var needList = longestEntryTextWidth() + listPadding
+
+        var need = Math.max(needTitle, needList)
+        autoDialogWidth = Math.min(Math.max(minDialogWidth, Math.ceil(need)), maxDialogWidth)
+    }
+
+    function longestEntryTextWidth() {
+        var m = entryList.model
+        var maxw = 0
+        var count = 0
+
+        // 优先：完整遍历模型（若支持 get(i)）
+        if (m && typeof m.count === "number") count = m.count
+        else if (m && typeof m.length === "number") count = m.length
+
+        if (m && typeof m.get === "function" && count > 0) {
+            for (var i = 0; i < count; ++i) {
+                var it = m.get(i)
+                var txt = displayNameFor((it && (it.path || it.name)) || "")
+                var w = listFontMetrics.advanceWidth(txt)
+                if (w > maxw) maxw = w
+            }
+            return maxw
+        }
+
+        // 退化：扫描已创建的 delegate（只覆盖可见项）
+        var kids = entryList.contentItem ? entryList.contentItem.children : []
+        for (var j = 0; j < kids.length; ++j) {
+            var child = kids[j]
+            if (child && child.label && child.label.implicitWidth) {
+                if (child.label.implicitWidth > maxw)
+                    maxw = child.label.implicitWidth
+            }
+        }
+        return maxw
+    }
+    // ==================== /动态宽度 ====================
+
 
     Shade {
         id: shade
@@ -245,11 +305,15 @@ FocusScope {
 
     Column {
         id: dialogBox
-        width: parent.height * 0.66
+
+        // ★ 核心：宽度取 min(max(最小宽度, 文字需求), 最大宽度)
+        width: autoDialogWidth > 0 ? autoDialogWidth : Math.min(Math.max(minDialogWidth, root.width * 0.5), maxDialogWidth)
+
         anchors.centerIn: parent
         scale: 0.5
         Behavior on scale { NumberAnimation { duration: 125 } }
 
+        // title bar
         Rectangle {
             id: titleBar
             width: parent.width
@@ -258,12 +322,15 @@ FocusScope {
 
             Text {
                 id: titleText
-                width: parent.width
+                // ★ 让标题宽度跟随对话框，从而在达到上限时自动换行
+                width: dialogBox.width
                 anchors.horizontalCenter: parent.horizontalCenter
+
                 text: qsTr("This game has multiple entries, which one would you like to launch?") + api.tr
                 color: "#eee"
                 font.pixelSize: root.titleTextSize
                 font.family: globalFonts.sans
+
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
                 wrapMode: Text.WordWrap
@@ -271,6 +338,7 @@ FocusScope {
             }
         }
 
+        // content area
         Rectangle {
             width: parent.width
             height: Math.min(entryList.fullHeight, root.height * 0.5)
@@ -279,13 +347,14 @@ FocusScope {
             ListView {
                 id: entryList
                 readonly property int itemHeight: root.textSize * 3
-                // ★ 兼容 model.count / model.length 两种模型
+                // 兼容 model.count / model.length
                 readonly property int countCompat: (model && model.count !== undefined) ? model.count
                                                : (model && model.length !== undefined) ? model.length : 0
                 readonly property int fullHeight: countCompat * itemHeight
 
                 anchors.fill: parent
                 clip: true
+
                 focus: true
                 highlightRangeMode: ListView.ApplyRange
                 preferredHighlightBegin: height * 0.5 - itemHeight * 0.5
@@ -316,10 +385,12 @@ FocusScope {
                     Text {
                         id: label
                         anchors.centerIn: parent
-                        // ★ 带上 nameMapRev 触发重算；同时支持 path/name 两种来源
+                        // 带上 nameMapRev 触发重算；同时支持 path/name 两种来源
                         text: displayNameFor(modelData.path || modelData.name, nameMapRev)
                         color: "#eee"
                         font { pixelSize: root.textSize; family: globalFonts.sans }
+                        // 保持单行展示；如果你想列表项也可换行，可设 wrapMode，且配合 itemHeight 自适应
+                        elide: Text.ElideRight
                     }
 
                     MouseArea {
