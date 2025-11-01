@@ -5,8 +5,8 @@ FocusScope {
     id: root
     property var game: null
 
-    // ★ 新增：外部可传入配置目录（如主题已知自己的配置路径）
-    property string configDir: ""    // 例如外层可传：configDir: "/storage/emulated/0/pegasus-frontend"
+    // ★ 外部可传入配置目录（如主题已知自己的配置路径）
+    property string configDir: ""    // 例如："/storage/emulated/0/pegasus-frontend"
 
     readonly property int textSize: vpx(16)
     readonly property int titleTextSize: vpx(18)
@@ -28,9 +28,13 @@ FocusScope {
     }
 
     // ==================== ★ 映射 CSV 支持（无 Qt.labs.platform 版本） 开始 ====================
+    // 修复点：增加 nameMapRev，作为依赖触发器，解决偶发不刷新问题
     property var nameMap: ({})
+    property int nameMapRev: 0
+
     property string resolvedConfigDir: ""
-    property string resolvedMapFileName: "arcade.cvs"
+    // 修复点：默认使用 .csv；后续会做 .csv/.cvs 互换重试
+    property string resolvedMapFileName: "arcade.csv"
 
     Component.onCompleted: {
         resolveConfigDir(function () {
@@ -49,12 +53,8 @@ FocusScope {
 
         // 2) Android 常见位置
         candidates.push("/storage/emulated/0/pegasus-frontend")
-        candidates.push("/storage/emulated/0/Pegasus")
-        candidates.push("/sdcard/pegasus-frontend")
-        candidates.push("/sdcard/Pegasus")
 
         // 3) 通用兜底（不写盘符）
-        candidates.push("/Pegasus")
         candidates.push("/Pegasus/config")
 
         // 去重 & 清洗
@@ -93,8 +93,7 @@ FocusScope {
             if (xhr.readyState === XMLHttpRequest.DONE)
                 cb(xhr.status === 0 || xhr.status === 200)
         }
-        // 用 GET，避免某些平台 HEAD 不可用
-        xhr.open("GET", url)
+        xhr.open("GET", url) // 用 GET，避免某些平台 HEAD 不可用
         xhr.send()
     }
 
@@ -106,7 +105,7 @@ FocusScope {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 if (xhr.status === 0 || xhr.status === 200) {
                     var txt = xhr.responseText || ""
-                    // arcade_map=arcade.cvs / arcade_map : arcade_zh.cvs
+                    // arcade_map=arcade.csv / arcade_map : arcade_zh.csv
                     var m = txt.match(/^\s*arcade_map\s*[:=]\s*(.+?)\s*$/mi)
                     if (m && m[1]) {
                         var fname = m[1].trim().replace(/^"+|"+$/g, "")
@@ -120,22 +119,76 @@ FocusScope {
         xhr.send()
     }
 
+    // ★ 键与值规范化工具：小写、NFC、去空格、URL 解码
+    function norm(s) {
+        if (!s) return ""
+        s = String(s)
+        try { s = decodeURIComponent(s) } catch(e) {} // 容错 %20 等
+        try { s = s.normalize("NFC") } catch(e) {}
+        return s.trim().toLowerCase()
+    }
+
+    function baseName(p) {
+        var s = String(p || "")
+        try { s = decodeURIComponent(s) } catch(e) {}
+        var parts = s.split(/[\\/]/)
+        s = parts[parts.length-1] || s
+        return s
+    }
+
+    function stemAndStemExt(p) {
+        // 返回两个键：去扩展名 / 带扩展名（均已规范化）
+        var b = baseName(p)
+        var dot = b.lastIndexOf(".")
+        var stem = (dot > 0) ? b.slice(0, dot) : b
+        return {
+            noExt: norm(stem),
+            withExt: norm(b)
+        }
+    }
+
     function loadArcadeCsv() {
-        if (!resolvedConfigDir) { nameMap = ({}); return }
-        var url = "file:///" + resolvedConfigDir.replace(/\\/g,"/") + "/" + resolvedMapFileName
-        var xhr = new XMLHttpRequest()
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === XMLHttpRequest.DONE) {
-                if (xhr.status === 0 || xhr.status === 200) {
-                    nameMap = parseCsvToMap(xhr.responseText)
-                } else {
-                    console.warn("Arcade map not found:", url, "status:", xhr.status)
-                    nameMap = ({})
+        if (!resolvedConfigDir) { nameMap = ({}); nameMapRev++; return }
+
+        function tryLoad(fname, next) {
+            var url = "file:///" + resolvedConfigDir.replace(/\\/g,"/") + "/" + fname
+            var xhr = new XMLHttpRequest()
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === XMLHttpRequest.DONE) {
+                    if ((xhr.status === 0 || xhr.status === 200) && (xhr.responseText !== undefined && xhr.responseText !== null)) {
+                        var text = xhr.responseText
+                        if (text && text.length) {
+                            nameMap = parseCsvToMap(text)
+                            nameMapRev++   // ★ 强制依赖重算
+                            return
+                        }
+                    }
+                    next && next() // 失败则进入下一重试
                 }
             }
+            xhr.open("GET", url)
+            xhr.send()
         }
-        xhr.open("GET", url)
-        xhr.send()
+
+        // 先按设置/默认的文件名加载，失败则尝试 .csv/.cvs 互换
+        var triedAlt = false
+        tryLoad(resolvedMapFileName, function () {
+            if (triedAlt) {
+                console.warn("Arcade map not found:", resolvedMapFileName)
+                nameMap = ({})
+                nameMapRev++     // ★ 失败也要触发一次重算
+                return
+            }
+            triedAlt = true
+            var alt = resolvedMapFileName.match(/\.cvs$/i)
+                ? resolvedMapFileName.replace(/\.cvs$/i, ".csv")
+                : resolvedMapFileName.replace(/\.csv$/i, ".cvs")
+            tryLoad(alt, function () {
+                console.warn("Arcade map not found:", resolvedMapFileName, "and", alt)
+                nameMap = ({})
+                nameMapRev++
+            })
+        })
     }
 
     function parseCsvToMap(text) {
@@ -146,32 +199,46 @@ FocusScope {
         var map = {}
         var lines = text.split(/\r?\n/)
         for (var i=0; i<lines.length; i++) {
-            var line = lines[i].trim()
+            var raw = lines[i]
+            if (!raw) continue
+            var line = raw.trim()
             if (!line || line.charAt(0) === '#') continue
-            if (i === 0 && line.charAt(0) === "\uFEFF") line = line.slice(1)
 
             var parts = line.split("|")
             if (parts.length < 2) continue
-            var key = parts[0].trim()
+            var rawKey = parts[0].trim()
             var val = parts.slice(1).join("|").trim()
-            if (i === 0 && key.toLowerCase() === "name") continue // 表头
-            if (key) map[key.toLowerCase()] = val
+
+            // 去除特殊不可见空格（如 NO-BREAK SPACE），以防 csv 来源不同编辑器
+            rawKey = rawKey.replace(/\u00A0/g, " ")
+            val = val.replace(/\u00A0/g, " ")
+
+            // 跳过表头：第一列为 "name"（不区分大小写）
+            if (i === 0 && norm(rawKey) === "name") continue
+
+            // 同时写入两种键：去扩展 / 带扩展（均规范化）
+            var b = baseName(rawKey)
+            var dot = b.lastIndexOf(".")
+            var noExt = norm(dot > 0 ? b.slice(0, dot) : b)
+            var withExt = norm(b)
+
+            if (noExt) map[noExt] = val
+            if (withExt) map[withExt] = val
         }
         return map
     }
 
-    function keyFromFileName(anyPath) {
-        if (!anyPath) return ""
-        var base = String(anyPath).split(/[\\/]/).pop()
-        var dot = base.lastIndexOf(".")
-        if (dot > 0) base = base.slice(0, dot)
-        return base.toLowerCase()
-    }
+    function displayNameFor(anyPathOrName /* , rev 占位触发重算 */) {
+        // ★ 依赖 nameMapRev：调用处会传入它来强制重算绑定
+        var k = stemAndStemExt(anyPathOrName)
+        if (nameMap && nameMap.hasOwnProperty(k.noExt)) return nameMap[k.noExt]
+        if (nameMap && nameMap.hasOwnProperty(k.withExt)) return nameMap[k.withExt]
 
-    function displayNameFor(anyPathOrName) {
-        var k = keyFromFileName(anyPathOrName)
-        if (k && nameMap && nameMap.hasOwnProperty(k)) return nameMap[k]
-        return String(anyPathOrName || "")
+        // 友好回退：显示“文件名（无扩展名）”而非绝对路径
+        var b = baseName(anyPathOrName)
+        var dot = b.lastIndexOf(".")
+        if (dot > 0) b = b.slice(0, dot)
+        return b || String(anyPathOrName || "")
     }
     // ==================== ★ 映射 CSV 支持（无 Qt.labs.platform 版本） 结束 ====================
 
@@ -222,7 +289,10 @@ FocusScope {
             ListView {
                 id: entryList
                 readonly property int itemHeight: root.textSize * 3
-                readonly property int fullHeight: model.count * itemHeight
+                // ★ 兼容 model.count / model.length 两种模型
+                readonly property int countCompat: (model && model.count !== undefined) ? model.count
+                                               : (model && model.length !== undefined) ? model.length : 0
+                readonly property int fullHeight: countCompat * itemHeight
 
                 anchors.fill: parent
                 clip: true
@@ -232,6 +302,7 @@ FocusScope {
                 preferredHighlightEnd: height * 0.5 + itemHeight * 0.5
 
                 model: game.files
+
                 delegate: Rectangle {
                     readonly property bool highlighted: ListView.view.focus
                         && (ListView.isCurrentItem || mouseArea.containsMouse)
@@ -255,8 +326,8 @@ FocusScope {
                     Text {
                         id: label
                         anchors.centerIn: parent
-                        // ★ 用映射名显示；fallback 到原名（有的构建 modelData.name 可能就是裸名）
-                        text: displayNameFor(modelData.path || modelData.name)
+                        // ★ 带上 nameMapRev 触发重算；同时支持 path/name 两种来源
+                        text: displayNameFor(modelData.path || modelData.name, nameMapRev)
                         color: "#eee"
                         font { pixelSize: root.textSize; family: globalFonts.sans }
                     }
