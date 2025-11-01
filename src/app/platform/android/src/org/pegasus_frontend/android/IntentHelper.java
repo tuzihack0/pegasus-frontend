@@ -1,32 +1,36 @@
 // Pegasus Frontend
-// Copyright (C) ...
-// GPLv3-or-later
+// Copyright (C) 2017-2021  Mátyás Mustoha
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 
 package org.pegasus_frontend.android;
 
-import android.app.Activity;
-import android.app.ActivityOptions;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.Display;
-
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
 
-final class IntentHelper {
-    private static final String TAG = "IntentHelper";
-    /** 我们自用的 extra，用于在启动阶段读取目标显示屏 id */
-    private static final String EXTRA_PEGASUS_DISPLAY_ID = "pegasus_launch_display_id";
 
-    // 基于 AOSP 的 Intent.parseCommandArgs，适配并裁剪
+final class IntentHelper {
+    // Based on the Intent.parseCommandArgs function of the Android source code,
+    // at commit 0fd623d6c3c4e65ab8c306f541fecae8a77393be
     public static Intent parseIntentCommand(LinkedList<String> args) throws URISyntaxException {
         Intent intent = new Intent();
         Intent baseIntent = intent;
@@ -34,33 +38,35 @@ final class IntentHelper {
 
         Uri data = null;
         String type = null;
-        int displayId = -1; // 未指定
 
         while (!args.isEmpty()) {
             final String opt = args.pop();
             switch (opt) {
                 case "-a":
                     intent.setAction(args.pop());
-                    if (intent == baseIntent) hasIntentInfo = true;
+                    if (intent == baseIntent)
+                        hasIntentInfo = true;
                     break;
                 case "-d":
                     data = Uri.parse(args.pop());
-                    if (intent == baseIntent) hasIntentInfo = true;
+                    if (intent == baseIntent)
+                        hasIntentInfo = true;
                     break;
                 case "-t":
                     type = args.pop();
-                    if (intent == baseIntent) hasIntentInfo = true;
+                    if (intent == baseIntent)
+                        hasIntentInfo = true;
                     break;
                 case "-i":
                     intent.setIdentifier(args.pop());
-                    if (intent == baseIntent) hasIntentInfo = true;
+                    if (intent == baseIntent)
+                        hasIntentInfo = true;
                     break;
                 case "-c":
                     intent.addCategory(args.pop());
-                    if (intent == baseIntent) hasIntentInfo = true;
+                    if (intent == baseIntent)
+                        hasIntentInfo = true;
                     break;
-
-                // ---- extras ----
                 case "-e":
                 case "--es": {
                     String key = args.pop();
@@ -89,7 +95,8 @@ final class IntentHelper {
                     String key = args.pop();
                     String value = args.pop();
                     ComponentName cn = ComponentName.unflattenFromString(value);
-                    if (cn == null) throw new IllegalArgumentException("Bad component name: " + value);
+                    if (cn == null)
+                        throw new IllegalArgumentException("Bad component name: " + value);
                     intent.putExtra(key, cn);
                     break;
                 }
@@ -98,7 +105,9 @@ final class IntentHelper {
                     String value = args.pop();
                     String[] strings = value.split(",");
                     int[] list = new int[strings.length];
-                    for (int i = 0; i < strings.length; i++) list[i] = Integer.decode(strings[i]);
+                    for (int i = 0; i < strings.length; i++) {
+                        list[i] = Integer.decode(strings[i]);
+                    }
                     intent.putExtra(key, list);
                     break;
                 }
@@ -107,7 +116,9 @@ final class IntentHelper {
                     String value = args.pop();
                     String[] strings = value.split(",");
                     ArrayList<Integer> list = new ArrayList<>(strings.length);
-                    for (int i = 0; i < strings.length; i++) list.add(Integer.decode(strings[i]));
+                    for (int i = 0; i < strings.length; i++) {
+                        list.add(Integer.decode(strings[i]));
+                    }
                     intent.putExtra(key, list);
                     break;
                 }
@@ -122,7 +133,9 @@ final class IntentHelper {
                     String value = args.pop();
                     String[] strings = value.split(",");
                     long[] list = new long[strings.length];
-                    for (int i = 0; i < strings.length; i++) list[i] = Long.valueOf(strings[i]);
+                    for (int i = 0; i < strings.length; i++) {
+                        list[i] = Long.valueOf(strings[i]);
+                    }
                     intent.putExtra(key, list);
                     hasIntentInfo = true;
                     break;
@@ -132,7 +145,9 @@ final class IntentHelper {
                     String value = args.pop();
                     String[] strings = value.split(",");
                     ArrayList<Long> list = new ArrayList<>(strings.length);
-                    for (int i = 0; i < strings.length; i++) list.add(Long.valueOf(strings[i]));
+                    for (int i = 0; i < strings.length; i++) {
+                        list.add(Long.valueOf(strings[i]));
+                    }
                     intent.putExtra(key, list);
                     hasIntentInfo = true;
                     break;
@@ -149,7 +164,9 @@ final class IntentHelper {
                     String value = args.pop();
                     String[] strings = value.split(",");
                     float[] list = new float[strings.length];
-                    for (int i = 0; i < strings.length; i++) list[i] = Float.valueOf(strings[i]);
+                    for (int i = 0; i < strings.length; i++) {
+                        list[i] = Float.valueOf(strings[i]);
+                    }
                     intent.putExtra(key, list);
                     hasIntentInfo = true;
                     break;
@@ -159,7 +176,9 @@ final class IntentHelper {
                     String value = args.pop();
                     String[] strings = value.split(",");
                     ArrayList<Float> list = new ArrayList<>(strings.length);
-                    for (int i = 0; i < strings.length; i++) list.add(Float.valueOf(strings[i]));
+                    for (int i = 0; i < strings.length; i++) {
+                        list.add(Float.valueOf(strings[i]));
+                    }
                     intent.putExtra(key, list);
                     hasIntentInfo = true;
                     break;
@@ -167,11 +186,10 @@ final class IntentHelper {
                 case "--esa": {
                     String key = args.pop();
                     String value = args.pop();
-                    // 以未转义逗号切分，并反转义 \, 与 \\
+                    // Split on commas unless they are preceeded by an escape.
+                    // The escape character must be escaped for the string and
+                    // again for the regex, thus four escape characters become one.
                     String[] strings = value.split("(?<!\\\\),");
-                    for (int i = 0; i < strings.length; i++) {
-                        strings[i] = strings[i].replace("\\,", ",").replace("\\\\", "\\");
-                    }
                     intent.putExtra(key, strings);
                     hasIntentInfo = true;
                     break;
@@ -179,10 +197,13 @@ final class IntentHelper {
                 case "--esal": {
                     String key = args.pop();
                     String value = args.pop();
+                    // Split on commas unless they are preceeded by an escape.
+                    // The escape character must be escaped for the string and
+                    // again for the regex, thus four escape characters become one.
                     String[] strings = value.split("(?<!\\\\),");
                     ArrayList<String> list = new ArrayList<>(strings.length);
                     for (int i = 0; i < strings.length; i++) {
-                        list.add(strings[i].replace("\\,", ",").replace("\\\\", "\\"));
+                        list.add(strings[i]);
                     }
                     intent.putExtra(key, list);
                     hasIntentInfo = true;
@@ -191,73 +212,135 @@ final class IntentHelper {
                 case "--ez": {
                     String key = args.pop();
                     String value = args.pop().toLowerCase();
+                    // Boolean.valueOf() results in false for anything that is not "true", which is
+                    // error-prone in shell commands
                     boolean arg;
-                    if ("true".equals(value) || "t".equals(value)) arg = true;
-                    else if ("false".equals(value) || "f".equals(value)) arg = false;
-                    else {
-                        try { arg = Integer.decode(value) != 0; }
-                        catch (NumberFormatException ex) {
+                    if ("true".equals(value) || "t".equals(value)) {
+                        arg = true;
+                    } else if ("false".equals(value) || "f".equals(value)) {
+                        arg = false;
+                    } else {
+                        try {
+                            arg = Integer.decode(value) != 0;
+                        } catch (NumberFormatException ex) {
                             throw new IllegalArgumentException("Invalid boolean value: " + value);
                         }
                     }
+
                     intent.putExtra(key, arg);
                     break;
                 }
-
-                // ---- 目标/包名/flags ----
                 case "-n": {
                     String str = args.pop();
                     ComponentName cn = ComponentName.unflattenFromString(str);
-                    if (cn == null) throw new IllegalArgumentException("Bad component name: " + str);
+                    if (cn == null)
+                        throw new IllegalArgumentException("Bad component name: " + str);
                     intent.setComponent(cn);
-                    if (intent == baseIntent) hasIntentInfo = true;
+                    if (intent == baseIntent)
+                        hasIntentInfo = true;
                     break;
                 }
                 case "-p": {
                     String str = args.pop();
                     intent.setPackage(str);
-                    if (intent == baseIntent) hasIntentInfo = true;
+                    if (intent == baseIntent)
+                        hasIntentInfo = true;
                     break;
                 }
                 case "-f":
                     String str = args.pop();
-                    intent.setFlags(Integer.decode(str));
+                    intent.setFlags(Integer.decode(str).intValue());
                     break;
-
-                case "--grant-read-uri-permission":  intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); break;
-                case "--grant-write-uri-permission": intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION); break;
-                case "--grant-persistable-uri-permission": intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION); break;
-                case "--grant-prefix-uri-permission": intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION); break;
-                case "--exclude-stopped-packages": intent.addFlags(Intent.FLAG_EXCLUDE_STOPPED_PACKAGES); break;
-                case "--include-stopped-packages": intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES); break;
-                case "--debug-log-resolution": intent.addFlags(Intent.FLAG_DEBUG_LOG_RESOLUTION); break;
-                case "--activity-brought-to-front": intent.addFlags(Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT); break;
-                case "--activity-clear-top": intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP); break;
-                case "--activity-clear-when-task-reset": intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET); break;
-                case "--activity-exclude-from-recents": intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS); break;
-                case "--activity-launched-from-history": intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY); break;
-                case "--activity-multiple-task": intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK); break;
-                case "--activity-no-animation": intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION); break;
-                case "--activity-no-history": intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY); break;
-                case "--activity-no-user-action": intent.addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION); break;
-                case "--activity-previous-is-top": intent.addFlags(Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP); break;
-                case "--activity-reorder-to-front": intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT); break;
-                case "--activity-reset-task-if-needed": intent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED); break;
-                case "--activity-single-top": intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP); break;
-                case "--activity-clear-task": intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK); break;
-                case "--activity-task-on-home": intent.addFlags(Intent.FLAG_ACTIVITY_TASK_ON_HOME); break;
-                case "--activity-match-external": intent.addFlags(Intent.FLAG_ACTIVITY_MATCH_EXTERNAL); break;
-                case "--receiver-registered-only": intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY); break;
-                case "--receiver-replace-pending": intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING); break;
-                case "--receiver-foreground": intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND); break;
-                case "--receiver-no-abort": intent.addFlags(Intent.FLAG_RECEIVER_NO_ABORT); break;
-
+                case "--grant-read-uri-permission":
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    break;
+                case "--grant-write-uri-permission":
+                    intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                    break;
+                case "--grant-persistable-uri-permission":
+                    intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                    break;
+                case "--grant-prefix-uri-permission":
+                    intent.addFlags(Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+                    break;
+                case "--exclude-stopped-packages":
+                    intent.addFlags(Intent.FLAG_EXCLUDE_STOPPED_PACKAGES);
+                    break;
+                case "--include-stopped-packages":
+                    intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+                    break;
+                case "--debug-log-resolution":
+                    intent.addFlags(Intent.FLAG_DEBUG_LOG_RESOLUTION);
+                    break;
+                case "--activity-brought-to-front":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT);
+                    break;
+                case "--activity-clear-top":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    break;
+                case "--activity-clear-when-task-reset":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_WHEN_TASK_RESET);
+                    break;
+                case "--activity-exclude-from-recents":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+                    break;
+                case "--activity-launched-from-history":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY);
+                    break;
+                case "--activity-multiple-task":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+                    break;
+                case "--activity-no-animation":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                    break;
+                case "--activity-no-history":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+                    break;
+                case "--activity-no-user-action":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+                    break;
+                case "--activity-previous-is-top":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP);
+                    break;
+                case "--activity-reorder-to-front":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                    break;
+                case "--activity-reset-task-if-needed":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+                    break;
+                case "--activity-single-top":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    break;
+                case "--activity-clear-task":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    break;
+                case "--activity-task-on-home":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_TASK_ON_HOME);
+                    break;
+                case "--activity-match-external":
+                    intent.addFlags(Intent.FLAG_ACTIVITY_MATCH_EXTERNAL);
+                    break;
+                case "--receiver-registered-only":
+                    intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
+                    break;
+                case "--receiver-replace-pending":
+                    intent.addFlags(Intent.FLAG_RECEIVER_REPLACE_PENDING);
+                    break;
+                case "--receiver-foreground":
+                    intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+                    break;
+                case "--receiver-no-abort":
+                    intent.addFlags(Intent.FLAG_RECEIVER_NO_ABORT);
+                    break;
+                // NOTE: FLAG_RECEIVER_INCLUDE_BACKGROUND doesn't seem to exist?
+                // case "--receiver-include-background":
+                //     intent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+                //     break;
                 case "--selector":
                     intent.setDataAndType(data, type);
                     intent = new Intent();
                     break;
-
-                // am 自身的选项，保持为 extra 以便上层决定
+                // Direct options of 'am', quietly ignored for now
                 case "-D":
                 case "-N":
                 case "-W":
@@ -267,22 +350,7 @@ final class IntentHelper {
                 case "--task-overlay":
                 case "--lock-task":
                 case "--allow-background-activity-starts":
-                    intent.putExtra("am_flag_" + opt, true);
                     break;
-
-                // ---- 真正支持的 --display ----
-                case "--display": {
-                    String v = args.pop();
-                    try {
-                        displayId = Integer.parseInt(v);
-                    } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("Invalid --display value: " + v);
-                    }
-                    // 不 putExtra("am_opt_--display")，保存到本地变量，启动阶段再转成 ActivityOptions
-                    break;
-                }
-
-                // 其它保留信息（系统不会自动识别）
                 case "-P":
                 case "--start-profiler":
                 case "--sampling":
@@ -291,23 +359,21 @@ final class IntentHelper {
                 case "-R":
                 case "--user":
                 case "--receiver-permission":
+                case "--display":
                 case "--windowingMode":
                 case "--activityType":
-                case "--task": {
-                    String v = args.pop();
-                    intent.putExtra("am_opt_" + opt, v);
+                case "--task":
+                    args.pop();
                     break;
-                }
-
                 default:
                     throw new IllegalArgumentException("Unknown option: " + opt);
             }
         }
-
         intent.setDataAndType(data, type);
 
         final boolean hasSelector = intent != baseIntent;
         if (hasSelector) {
+            // A selector was specified; fix up.
             baseIntent.setSelector(intent);
             intent = baseIntent;
         }
@@ -316,29 +382,41 @@ final class IntentHelper {
         baseIntent = null;
         if (arg == null) {
             if (hasSelector) {
+                // If a selector has been specified, and no arguments
+                // have been supplied for the main Intent, then we can
+                // assume it is ACTION_MAIN CATEGORY_LAUNCHER; we don't
+                // need to have a component name specified yet, the
+                // selector will take care of that.
                 baseIntent = new Intent(Intent.ACTION_MAIN);
                 baseIntent.addCategory(Intent.CATEGORY_LAUNCHER);
             }
         } else if (arg.indexOf(':') >= 0) {
+            // The argument is a URI.  Fully parse it, and use that result
+            // to fill in any data not specified so far.
             baseIntent = Intent.parseUri(arg, Intent.URI_INTENT_SCHEME
                     | Intent.URI_ANDROID_APP_SCHEME | Intent.URI_ALLOW_UNSAFE);
         } else if (arg.indexOf('/') >= 0) {
+            // The argument is a component name.  Build an Intent to launch
+            // it.
             baseIntent = new Intent(Intent.ACTION_MAIN);
             baseIntent.addCategory(Intent.CATEGORY_LAUNCHER);
             baseIntent.setComponent(ComponentName.unflattenFromString(arg));
         } else {
+            // Assume the argument is a package name.
             baseIntent = new Intent(Intent.ACTION_MAIN);
             baseIntent.addCategory(Intent.CATEGORY_LAUNCHER);
             baseIntent.setPackage(arg);
         }
         if (baseIntent != null) {
             Bundle extras = intent.getExtras();
-            intent.replaceExtras((Bundle) null);
+            intent.replaceExtras((Bundle)null);
             Bundle uriExtras = baseIntent.getExtras();
-            baseIntent.replaceExtras((Bundle) null);
+            baseIntent.replaceExtras((Bundle)null);
             if (intent.getAction() != null && baseIntent.getCategories() != null) {
-                HashSet<String> cats = new HashSet<>(baseIntent.getCategories());
-                for (String c : cats) baseIntent.removeCategory(c);
+                HashSet<String> cats = new HashSet<String>(baseIntent.getCategories());
+                for (String c : cats) {
+                    baseIntent.removeCategory(c);
+                }
             }
             intent.fillIn(baseIntent, Intent.FILL_IN_COMPONENT | Intent.FILL_IN_SELECTOR);
             if (extras == null) {
@@ -351,70 +429,9 @@ final class IntentHelper {
             hasIntentInfo = true;
         }
 
-        if (!hasIntentInfo) throw new IllegalArgumentException("No intent supplied");
-
-        // 把 displayId 存入 extra，供启动阶段读取
-        if (displayId >= 0) intent.putExtra(EXTRA_PEGASUS_DISPLAY_ID, displayId);
+        if (!hasIntentInfo)
+            throw new IllegalArgumentException("No intent supplied");
 
         return intent;
-    }
-
-    /**
-     * 根据 EXTRA_PEGASUS_DISPLAY_ID，尽可能在指定 Display 启动。
-     * - API >= 26 使用 ActivityOptions#setLaunchDisplayId
-     * - 非 Activity 上下文自动添加 NEW_TASK/MULTIPLE_TASK
-     * - 目标显示不存在或系统策略不允许时自动降级在默认屏启动
-     */
-    public static void startActivityWithOptions(Context context, Intent intent) {
-        int displayId = intent.getIntExtra(EXTRA_PEGASUS_DISPLAY_ID, -1);
-
-        // 1) 校验目标 Display 是否存在
-        if (displayId >= 0) {
-            try {
-                DisplayManager dm = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
-                Display target = (dm != null) ? dm.getDisplay(displayId) : null;
-                if (target == null) {
-                    Log.w(TAG, "Target displayId " + displayId + " not found; fallback to default");
-                    displayId = -1;
-                } else {
-                    try {
-                        // 打印 flags（辅助判断是否为 Presentation/Private）
-                        int flags = (int) Display.class.getMethod("getFlags").invoke(target);
-                        Log.d(TAG, "Display#" + displayId + " flags=0x" + Integer.toHexString(flags));
-                    } catch (Throwable ignore) {}
-                }
-            } catch (Throwable t) {
-                Log.w(TAG, "Display check failed: " + t);
-            }
-        }
-
-        // 2) 非 Activity 上下文 => 强制新任务，降低被合并回主屏概率
-        if (!(context instanceof Activity)) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            intent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-            // 如需更“决绝”，可按需启用清任务：
-            // intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        }
-
-        // 3) 传入 ActivityOptions（API 26+）
-        Bundle opts = null;
-        if (displayId >= 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                ActivityOptions ao = ActivityOptions.makeBasic();
-                ao.setLaunchDisplayId(displayId);
-                opts = ao.toBundle();
-            } catch (Throwable t) {
-                Log.w(TAG, "setLaunchDisplayId not honored: " + t);
-            }
-        }
-
-        // 4) 启动 & 兜底
-        try {
-            if (opts != null) context.startActivity(intent, opts);
-            else context.startActivity(intent);
-        } catch (Throwable t) {
-            Log.e(TAG, "startActivity failed: " + t);
-            try { context.startActivity(intent); } catch (Throwable ignore) {}
-        }
     }
 }
