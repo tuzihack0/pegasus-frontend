@@ -348,6 +348,7 @@ void ProcessLauncher::onProcessFinished(int exitcode, QProcess::ExitStatus exits
 #endif
 
     afterRun();
+    emit processFinished();  // 通知上层恢复前端
 }
 
 void ProcessLauncher::beforeRun(const QString& game_path)
