@@ -1,19 +1,6 @@
 // Pegasus Frontend
-// Copyright (C) 2017  Mátyás Mustoha
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <http://www.gnu.org/licenses/>.
-
+// Copyright (C) 2017
+// License: GPLv3-or-later
 
 #include "FrontendLayer.h"
 
@@ -42,7 +29,6 @@ public:
 
 } // namespace
 
-
 FrontendLayer::FrontendLayer(QObject* const api_public,
                              QObject* const api_private,
                              QObject* parent)
@@ -56,7 +42,8 @@ FrontendLayer::FrontendLayer(QObject* const api_public,
 
 void FrontendLayer::rebuild()
 {
-    //Q_ASSERT(!m_engine);
+    // 幂等：已有引擎在跑就不重建，直接宣布完成，避免闪烁
+    // Q_ASSERT(!m_engine);
     if (m_engine) {
         emit rebuildComplete();
         return;
@@ -80,22 +67,23 @@ void FrontendLayer::rebuild()
     emit rebuildComplete();
 }
 
-    // 多屏：无论谁调用了 teardown，都不要真的销毁引擎，直接宣布完成
-    // 这样可以彻底避免“删了又建”的重建闪烁
+void FrontendLayer::teardown()
+{
+    // 多屏：谁调用 teardown 都不真正销毁引擎，直接宣布完成，避免“拆了又建”
     const bool multi_screen = QGuiApplication::screens().size() > 1;
     if (multi_screen) {
         emit teardownComplete();
         return;
     }
 
-    // 单屏幂等：若当前没有引擎（例如已经被拆过），也直接宣布完成，推进状态机
+    // 单屏幂等：若当前没有引擎（例如已被拆过），也直接宣布完成
     // Q_ASSERT(m_engine);
     if (!m_engine) {
         emit teardownComplete();
         return;
     }
 
-    // signal forwarding
+    // 正常单屏 teardown：销毁并在 destroyed 时转发完成信号
     connect(m_engine, &QQmlApplicationEngine::destroyed,
             this, &FrontendLayer::teardownComplete);
 
