@@ -284,10 +284,9 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
 void ProcessLauncher::onTeardownComplete()
 {
 #ifndef Q_OS_ANDROID
-    Q_ASSERT(m_process);
-    m_process->waitForFinished(-1);
+    
 #endif
-    emit processFinished();
+    return;
 }
 
 void ProcessLauncher::onProcessStarted()
