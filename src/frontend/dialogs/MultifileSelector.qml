@@ -5,6 +5,23 @@ FocusScope {
     id: root
     property var game: null
 
+function closeNow() {
+    state = "";
+    shade.opacity = 0;   // visible 绑定依赖 shade.opacity > 0，所以这会让整个弹窗消失
+}
+onAccept: closeNow()
+onCancel: closeNow()
+
+Connections {
+    target: Api
+    function onGameFileLaunched(game) {
+        root.accept();
+    }
+    function onGameFileFinished() {
+        closeNow();
+    }
+}
+
     // ★ 可选：外部传入配置目录
     property string configDir: ""
 
