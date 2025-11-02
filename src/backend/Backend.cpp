@@ -272,7 +272,6 @@ void Backend::onFavoritesChanged()
 
 void Backend::onDislikesChanged()
 {
-    // 将当前所有游戏列表传给 ProviderManager，让 dislikes provider 去落盘
     m_providerman->onDislikesChanged(m_api_public->allGames()->entries());
 }
 
@@ -283,11 +282,7 @@ void Backend::onProcessLaunched()
     if (!multi_screen) {
         m_frontend->teardown();
     } else {
-        QMetaObject::invokeMethod(
-            m_launcher,
-            "onTeardownComplete",
-            Qt::QueuedConnection
-        );
+        
     }
     m_api_private->gamepad().stop();
 }
