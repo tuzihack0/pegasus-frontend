@@ -1,11 +1,23 @@
 // Pegasus Frontend
-// Copyright (C) 2017
-// License: GPLv3-or-later
+// Copyright (C) 2017  Mátyás Mustoha
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 
 #include "FrontendLayer.h"
 
 #include "Paths.h"
-#include <QGuiApplication>
 #include "imggen/BlurhashProvider.h"
 #include "utils/DiskCachedNAM.h"
 
@@ -16,22 +28,24 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlNetworkAccessManagerFactory>
-#include <QNetworkAccessManager>
+
 
 namespace {
 
 class DiskCachedNAMFactory : public QQmlNetworkAccessManagerFactory {
 public:
-    QNetworkAccessManager* create(QObject* parent) override {
-        return utils::create_disc_cached_nam(parent);
-    }
+    QNetworkAccessManager* create(QObject* parent) override;
 };
+
+QNetworkAccessManager* DiskCachedNAMFactory::create(QObject* parent)
+{
+    return utils::create_disc_cached_nam(parent);
+}
 
 } // namespace
 
-FrontendLayer::FrontendLayer(QObject* const api_public,
-                             QObject* const api_private,
-                             QObject* parent)
+
+FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_private, QObject* parent)
     : QObject(parent)
     , m_api_public(api_public)
     , m_api_private(api_private)
@@ -42,12 +56,7 @@ FrontendLayer::FrontendLayer(QObject* const api_public,
 
 void FrontendLayer::rebuild()
 {
-    // 幂等：已有引擎在跑就不重建，直接宣布完成，避免闪烁
-    // Q_ASSERT(!m_engine);
-    if (m_engine) {
-        emit rebuildComplete();
-        return;
-    }
+    Q_ASSERT(!m_engine);
 
     m_engine = new QQmlApplicationEngine(this);
     m_engine->addImportPath(QStringLiteral("lib/qml"));
@@ -69,21 +78,9 @@ void FrontendLayer::rebuild()
 
 void FrontendLayer::teardown()
 {
-    // 多屏：谁调用 teardown 都不真正销毁引擎，直接宣布完成，避免“拆了又建”
-    const bool multi_screen = QGuiApplication::screens().size() > 1;
-    if (multi_screen) {
-        emit teardownComplete();
-        return;
-    }
+    Q_ASSERT(m_engine);
 
-    // 单屏幂等：若当前没有引擎（例如已被拆过），也直接宣布完成
-    // Q_ASSERT(m_engine);
-    if (!m_engine) {
-        emit teardownComplete();
-        return;
-    }
-
-    // 正常单屏 teardown：销毁并在 destroyed 时转发完成信号
+    // signal forwarding
     connect(m_engine, &QQmlApplicationEngine::destroyed,
             this, &FrontendLayer::teardownComplete);
 
