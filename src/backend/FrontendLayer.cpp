@@ -28,6 +28,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlNetworkAccessManagerFactory>
+#include <QGuiApplication>
 
 
 namespace {
@@ -56,7 +57,11 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
 
 void FrontendLayer::rebuild()
 {
-    Q_ASSERT(!m_engine);
+    //Q_ASSERT(!m_engine);
+    if (m_engine) {
+        emit rebuildComplete();
+        return;
+    }
 
     m_engine = new QQmlApplicationEngine(this);
     m_engine->addImportPath(QStringLiteral("lib/qml"));
@@ -78,7 +83,16 @@ void FrontendLayer::rebuild()
 
 void FrontendLayer::teardown()
 {
-    Q_ASSERT(m_engine);
+    //Q_ASSERT(m_engine);
+    if (multi_screen) {
+        emit teardownComplete();
+        return;
+    }
+
+    if (!m_engine) {
+        emit teardownComplete();
+        return;
+    }
 
     // signal forwarding
     connect(m_engine, &QQmlApplicationEngine::destroyed,
