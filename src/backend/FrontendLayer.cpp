@@ -84,6 +84,8 @@ void FrontendLayer::rebuild()
 void FrontendLayer::teardown()
 {
     //Q_ASSERT(m_engine);
+    const bool multi_screen = QGuiApplication::screens().size() > 1;
+    
     if (multi_screen) {
         emit teardownComplete();
         return;
