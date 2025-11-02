@@ -190,10 +190,10 @@ Backend::Backend(const CliArgs& args)
                      m_api_public, &model::ApiObject::onGameLaunchError);
 
     QObject::connect(m_launcher, &ProcessLauncher::processLaunchOk,
-                     [this](){ (); });
+                 [this](){ onProcessLaunched(); });
 
     QObject::connect(m_frontend, &FrontendLayer::teardownComplete,
-                     m_launcher, &ProcessLauncher::);
+                 m_launcher, &ProcessLauncher::onTeardownComplete);
 
     // when the game ends, the Launcher wakes up the Api and the Frontend
     QObject::connect(m_launcher, &ProcessLauncher::processFinished,
