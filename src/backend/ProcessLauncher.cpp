@@ -256,7 +256,6 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
     m_process->setInputChannelMode(QProcess::ForwardedInputChannel);
     m_process->setWorkingDirectory(workdir);
     m_process->start(command, args, QProcess::ReadOnly);
-    m_process->waitForStarted(-1);
 
 #else // Q_OS_ANDROID
     // -------- Android 平台：使用 AndroidHelpers 解析/执行 am start --------
