@@ -81,15 +81,21 @@ void FrontendLayer::rebuild()
     emit rebuildComplete();
 }
 
-void FrontendLayer::teardown()
-{
-    Q_ASSERT(m_engine);
-        // 幂等：如果当前没有引擎（例如多屏流程下未执行过 teardown），
-        // 仍需向上游宣布“已完成”，以推进状态机，但不做任何销毁
-        if (!m_engine) {
+    // 多屏：无论谁调用了 teardown，都不要真的销毁引擎，直接宣布完成
+    // 这样可以彻底避免“删了又建”的重建闪烁
+    const bool multi_screen = QGuiApplication::screens().size() > 1;
+    if (multi_screen) {
         emit teardownComplete();
         return;
-        }
+    }
+
+    // 单屏的幂等保护：
+    // 若当前没有引擎（例如已经被拆过），直接宣布完成，推进状态机即可
+    // Q_ASSERT(m_engine);
+    if (!m_engine) {
+        emit teardownComplete();
+        return;
+    }
 
     // signal forwarding
     connect(m_engine, &QQmlApplicationEngine::destroyed,
