@@ -193,7 +193,7 @@ Backend::Backend(const CliArgs& args)
                      [this](){ (); });
 
     QObject::connect(m_frontend, &FrontendLayer::teardownComplete,
-                     m_launcher, &ProcessLauncher::onTeardownComplete);
+                     m_launcher, &ProcessLauncher::);
 
     // when the game ends, the Launcher wakes up the Api and the Frontend
     QObject::connect(m_launcher, &ProcessLauncher::processFinished,
@@ -289,7 +289,9 @@ void Backend::onProcessLaunched()
     if (!multi_screen) {
         m_frontend->teardown();
     } else {
-    QMetaObject::invokeMethod(m_launcher, "onTeardownComplete", Qt::QueuedConnection);
+    QMetaObject::invokeMethod(m_launcher,
+                          "onTeardownComplete",
+                          Qt::QueuedConnection);
     }
     m_api_private->gamepad().stop();
 }
