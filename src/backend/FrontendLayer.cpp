@@ -29,24 +29,23 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlNetworkAccessManagerFactory>
-
+#include <QNetworkAccessManager>
 
 namespace {
 
 class DiskCachedNAMFactory : public QQmlNetworkAccessManagerFactory {
 public:
-    QNetworkAccessManager* create(QObject* parent) override;
+    QNetworkAccessManager* create(QObject* parent) override {
+        return utils::create_disc_cached_nam(parent);
+    }
 };
-
-QNetworkAccessManager* DiskCachedNAMFactory::create(QObject* parent)
-{
-    return utils::create_disc_cached_nam(parent);
-}
 
 } // namespace
 
 
-FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_private, QObject* parent)
+FrontendLayer::FrontendLayer(QObject* const api_public,
+                             QObject* const api_private,
+                             QObject* parent)
     : QObject(parent)
     , m_api_public(api_public)
     , m_api_private(api_private)
@@ -57,8 +56,8 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
 
 void FrontendLayer::rebuild()
 {
-    Q_ASSERT(!m_engine);
-     if (m_engine) {
+    //Q_ASSERT(!m_engine);
+    if (m_engine) {
         emit rebuildComplete();
         return;
     }
@@ -89,8 +88,7 @@ void FrontendLayer::rebuild()
         return;
     }
 
-    // 单屏的幂等保护：
-    // 若当前没有引擎（例如已经被拆过），直接宣布完成，推进状态机即可
+    // 单屏幂等：若当前没有引擎（例如已经被拆过），也直接宣布完成，推进状态机
     // Q_ASSERT(m_engine);
     if (!m_engine) {
         emit teardownComplete();
