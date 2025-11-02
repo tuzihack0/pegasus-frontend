@@ -190,7 +190,7 @@ Backend::Backend(const CliArgs& args)
                      m_api_public, &model::ApiObject::onGameLaunchError);
 
     QObject::connect(m_launcher, &ProcessLauncher::processLaunchOk,
-                     [this](){ onProcessLaunched(); });
+                     [this](){ (); });
 
     QObject::connect(m_frontend, &FrontendLayer::teardownComplete,
                      m_launcher, &ProcessLauncher::onTeardownComplete);
@@ -289,7 +289,7 @@ void Backend::onProcessLaunched()
     if (!multi_screen) {
         m_frontend->teardown();
     } else {
-    
+    QMetaObject::invokeMethod(m_launcher, "onTeardownComplete", Qt::QueuedConnection);
     }
     m_api_private->gamepad().stop();
 }
