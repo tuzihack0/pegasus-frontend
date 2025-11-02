@@ -278,7 +278,19 @@ void Backend::onDislikesChanged()
 
 void Backend::onProcessLaunched()
 {
-    m_frontend->teardown();
+   // m_frontend->teardown();
+   // m_api_private->gamepad().stop();
+    
+    // - 多屏下不 teardown，可避免原屏幕退后台/切回的焦点抖动；外部进程在其它屏获取焦点。
+    // - 无论是否多屏，都要暂停手柄，以免输入误打到前端。
+    const bool multi_screen =
+        QGuiApplication::screens().size() > 1; // 需要 <QGuiApplication> 头
+
+    if (!multi_screen) {
+        m_frontend->teardown();
+    } else {
+    
+    }
     m_api_private->gamepad().stop();
 }
 
