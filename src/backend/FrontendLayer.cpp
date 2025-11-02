@@ -18,6 +18,7 @@
 #include "FrontendLayer.h"
 
 #include "Paths.h"
+#include <QGuiApplication>
 #include "imggen/BlurhashProvider.h"
 #include "utils/DiskCachedNAM.h"
 
@@ -57,6 +58,10 @@ FrontendLayer::FrontendLayer(QObject* const api_public, QObject* const api_priva
 void FrontendLayer::rebuild()
 {
     Q_ASSERT(!m_engine);
+     if (m_engine) {
+        emit rebuildComplete();
+        return;
+    }
 
     m_engine = new QQmlApplicationEngine(this);
     m_engine->addImportPath(QStringLiteral("lib/qml"));
@@ -79,6 +84,12 @@ void FrontendLayer::rebuild()
 void FrontendLayer::teardown()
 {
     Q_ASSERT(m_engine);
+        // 幂等：如果当前没有引擎（例如多屏流程下未执行过 teardown），
+        // 仍需向上游宣布“已完成”，以推进状态机，但不做任何销毁
+        if (!m_engine) {
+        emit teardownComplete();
+        return;
+        }
 
     // signal forwarding
     connect(m_engine, &QQmlApplicationEngine::destroyed,
