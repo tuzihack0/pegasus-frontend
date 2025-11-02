@@ -281,16 +281,16 @@ void Backend::onProcessLaunched()
 
     if (!multi_screen) {
         m_frontend->teardown();
+        //m_api_private->gamepad().stop();
     } else {
         
     }
-    m_api_private->gamepad().stop();
 }
 
 void Backend::onProcessFinished()
 {
     m_frontend->rebuild();
-    m_api_private->gamepad().start(m_args);
+    //m_api_private->gamepad().start(m_args);
 }
 
 } // namespace backend
