@@ -11,7 +11,6 @@
 #include "model/gaming/GameFile.h"
 #include "providers/SearchContext.h"
 #include "utils/PathTools.h"
-#include "utils/Paths.h"
 
 #include <QDir>
 #include <QFile>
