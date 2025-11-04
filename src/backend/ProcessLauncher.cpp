@@ -256,6 +256,7 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
     m_process->setInputChannelMode(QProcess::ForwardedInputChannel);
     m_process->setWorkingDirectory(workdir);
     m_process->start(command, args, QProcess::ReadOnly);
+    m_process->waitForStarted(-1);
 
 #else // Q_OS_ANDROID
     // -------- Android 平台：使用 AndroidHelpers 解析/执行 am start --------
@@ -283,9 +284,10 @@ void ProcessLauncher::runProcess(const QString& command, const QStringList& args
 void ProcessLauncher::onTeardownComplete()
 {
 #ifndef Q_OS_ANDROID
-    
+    Q_ASSERT(m_process);
+    m_process->waitForFinished(-1);
 #endif
-    return;
+    emit processFinished();
 }
 
 void ProcessLauncher::onProcessStarted()
@@ -347,7 +349,6 @@ void ProcessLauncher::onProcessFinished(int exitcode, QProcess::ExitStatus exits
 #endif
 
     afterRun();
-    emit processFinished();  // 通知上层恢复前端
 }
 
 void ProcessLauncher::beforeRun(const QString& game_path)
