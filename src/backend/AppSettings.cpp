@@ -133,6 +133,7 @@ std::vector<std::unique_ptr<providers::Provider>> create_providers()
         MKENTRY(skraper::SkraperAssetsProvider)
 #endif
         MKENTRY(favorites::Favorites)
+        MKENTRY(dislikes::Dislikes) 
         MKENTRY(playtime::PlaytimeStats)
     out.shrink_to_fit();
     return out;
