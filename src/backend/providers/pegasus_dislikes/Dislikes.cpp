@@ -11,6 +11,7 @@
 #include "model/gaming/GameFile.h"
 #include "providers/SearchContext.h"
 #include "utils/PathTools.h"
+#include "utils/Paths.h"
 
 #include <QDir>
 #include <QFile>
@@ -20,15 +21,14 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QDateTime>
 
-namespace {
-QString default_db_path()
-{
-    return paths::writableConfigDir() + QStringLiteral("/dislikes.txt");
-}
-} // namespace
-
 namespace providers {
 namespace dislikes {
+
+QString Dislikes::default_db_path() {
+    const QString dir = paths::writableConfigDir();
+    QDir().mkpath(dir); 
+    return dir + QLatin1String("/dislikes.txt");
+}
 
 Dislikes::Dislikes(QObject* parent)
     : Dislikes(default_db_path(), parent)
