@@ -25,12 +25,12 @@ namespace dislikes {
 
 QString Dislikes::default_db_path() {
     const QString dir = paths::writableConfigDir();
-    QDir().mkpath(dir); 
-    return dir + QLatin1String("/dislikes.txt");
+    QDir().mkpath(dir);
+    return dir + QStringLiteral("/dislikes.txt");
 }
 
 Dislikes::Dislikes(QObject* parent)
-    : Dislikes(default_db_path(), parent)
+    : Dislikes(Dislikes::default_db_path(), parent)
 {}
 
 Dislikes::Dislikes(QString db_path, QObject* parent)
