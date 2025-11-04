@@ -68,8 +68,9 @@ Game& Game::setFavorite(bool new_val)
 
 Game& Game::setDisliked(bool new_val)
 {
+    if (m_data.is_disliked == new_val) return *this;
     m_data.is_disliked = new_val;
-    emit dislikedChanged();
+    emit dislikedChanged();     // 驱动 QML 刷新 & 上层通知
     return *this;
 }
 
